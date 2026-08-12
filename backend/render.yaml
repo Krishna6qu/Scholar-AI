@@ -1,0 +1,43 @@
+services:
+  - type: web
+    name: scholarai-backend
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app.main:app -c gunicorn_conf.py
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false  # set manually in Render dashboard — your Neon connection string
+      - key: REDIS_URL
+        sync: false  # set manually — your Upstash connection string
+      - key: CORS_ORIGINS
+        sync: false  # set manually — your deployed frontend URL, e.g. ["https://scholarai.vercel.app"]
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: DEFAULT_AI_MODEL
+        value: gpt-4o-mini
+      - key: USE_S3_STORAGE
+        value: true
+      - key: S3_ENDPOINT_URL
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
