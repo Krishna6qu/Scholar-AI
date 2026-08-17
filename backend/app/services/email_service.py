@@ -1,57 +1,53 @@
 """
-Email sending via Gmail SMTP.
+Email sending via Brevo's HTTP API (api.brevo.com). Deliberately HTTP-based
+rather than SMTP — Render's free tier blocks all outbound SMTP ports
+(25/465/587), so any SMTP-based sender (Gmail included) fails there
+regardless of credentials. A plain HTTPS POST like this one isn't affected.
 
-Uses Python's built-in smtplib (no extra dependency) wrapped in a thread
-since smtplib is synchronous. Requires a Gmail *App Password* (Google
-Account -> Security -> App Passwords) — the regular account password will
-not work once 2-Step Verification is enabled, which App Passwords require.
-
-If GMAIL_ADDRESS / GMAIL_APP_PASSWORD aren't set, emails are logged instead
-of sent — this keeps local dev working with zero setup, and makes it
-obvious in the logs what would have been sent.
+If BREVO_API_KEY isn't set, emails are logged instead of sent — this keeps
+local dev working with zero setup, and makes it obvious in the logs what
+would have been sent.
 """
-import asyncio
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-
+import httpx
 from loguru import logger
 
 from app.core.config import settings
 
-SMTP_HOST = "smtp.gmail.com"
-SMTP_PORT = 587
+BREVO_API_URL = "https://api.brevo.com/v3/smtp/email"
 
 
-def _send_sync(to: str, subject: str, html: str) -> None:
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = f"{settings.GMAIL_FROM_NAME} <{settings.GMAIL_ADDRESS}>"
-    msg["To"] = to
-    msg.attach(MIMEText(html, "html"))
-
-    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
-        server.starttls()
-        server.login(settings.GMAIL_ADDRESS, settings.GMAIL_APP_PASSWORD)
-        server.sendmail(settings.GMAIL_ADDRESS, [to], msg.as_string())
+def _parse_from_address(raw: str) -> dict:
+    # settings.BREVO_FROM_EMAIL is stored as "Name <email@domain.com>" —
+    # Brevo wants name/email as separate fields.
+    if "<" in raw and raw.endswith(">"):
+        name, email = raw.rsplit("<", 1)
+        return {"name": name.strip(), "email": email.rstrip(">").strip()}
+    return {"email": raw.strip()}
 
 
 async def send_email(to: str, subject: str, html: str) -> None:
-    if not settings.GMAIL_ADDRESS or not settings.GMAIL_APP_PASSWORD:
-        logger.info(f"[email skipped, Gmail SMTP not configured] To: {to} | Subject: {subject}")
+    if not settings.BREVO_API_KEY:
+        logger.info(f"[email skipped, no BREVO_API_KEY set] To: {to} | Subject: {subject}")
         return
 
-    try:
-        # smtplib is blocking — run it off the event loop so it doesn't
-        # stall other requests while the SMTP handshake happens.
-        await asyncio.to_thread(_send_sync, to, subject, html)
-    except smtplib.SMTPAuthenticationError:
-        logger.error(
-            "Gmail SMTP authentication failed — check GMAIL_ADDRESS and GMAIL_APP_PASSWORD "
-            "(must be an App Password, not the regular account password)."
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            BREVO_API_URL,
+            headers={
+                "api-key": settings.BREVO_API_KEY,
+                "Content-Type": "application/json",
+                "Accept": "application/json",
+            },
+            json={
+                "sender": _parse_from_address(settings.BREVO_FROM_EMAIL),
+                "to": [{"email": to}],
+                "subject": subject,
+                "htmlContent": html,
+            },
+            timeout=10.0,
         )
-    except Exception as exc:  # noqa: BLE001 — log and continue, never crash the request over email
-        logger.error(f"Gmail SMTP send failed: {exc}")
+        if response.status_code >= 400:
+            logger.error(f"Brevo API error ({response.status_code}): {response.text}")
 
 
 async def send_otp_email(to: str, code: str) -> None:

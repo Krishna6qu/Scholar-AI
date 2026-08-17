@@ -66,15 +66,13 @@ class Settings(BaseSettings):
     GEMINI_API_KEY: str | None = None
     DEFAULT_AI_MODEL: str = "gpt-4o-mini"
 
-    # --- Email (Gmail SMTP) ---
+    # --- Email (Brevo) ---
     # If unset, verification/reset emails are skipped and just logged instead
-    # — fine for dev. Set both to actually send real emails via Gmail SMTP.
-    # GMAIL_APP_PASSWORD must be a 16-character App Password (Google Account
-    # → Security → App Passwords), NOT the regular account password — Gmail
-    # rejects SMTP logins with the real password once 2-Step Verification is on.
-    GMAIL_ADDRESS: str | None = None
-    GMAIL_APP_PASSWORD: str | None = None
-    GMAIL_FROM_NAME: str = "ScholarAI"
+    # — fine for dev. Sends over HTTPS (Brevo's API), not SMTP — this matters
+    # because Render's free tier blocks outbound SMTP ports entirely, so an
+    # HTTP-based provider is required there regardless of which one is used.
+    BREVO_API_KEY: str | None = None
+    BREVO_FROM_EMAIL: str = "ScholarAI <noreply@example.com>"
     FRONTEND_URL: str = "http://localhost:5173"
 
     # --- CORS ---
