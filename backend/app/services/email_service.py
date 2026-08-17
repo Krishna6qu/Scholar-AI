@@ -1,38 +1,57 @@
 """
-Email sending via Resend (resend.com). Uses their plain HTTP API directly —
-no SDK dependency needed, it's a single POST request.
+Email sending via Gmail SMTP.
 
-If RESEND_API_KEY isn't set, emails are logged instead of sent — this keeps
-local dev working with zero setup, and makes it obvious in the logs what
-would have been sent.
+Uses Python's built-in smtplib (no extra dependency) wrapped in a thread
+since smtplib is synchronous. Requires a Gmail *App Password* (Google
+Account -> Security -> App Passwords) — the regular account password will
+not work once 2-Step Verification is enabled, which App Passwords require.
+
+If GMAIL_ADDRESS / GMAIL_APP_PASSWORD aren't set, emails are logged instead
+of sent — this keeps local dev working with zero setup, and makes it
+obvious in the logs what would have been sent.
 """
-import httpx
+import asyncio
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 from loguru import logger
 
 from app.core.config import settings
 
-RESEND_API_URL = "https://api.resend.com/emails"
+SMTP_HOST = "smtp.gmail.com"
+SMTP_PORT = 587
+
+
+def _send_sync(to: str, subject: str, html: str) -> None:
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"{settings.GMAIL_FROM_NAME} <{settings.GMAIL_ADDRESS}>"
+    msg["To"] = to
+    msg.attach(MIMEText(html, "html"))
+
+    with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=10) as server:
+        server.starttls()
+        server.login(settings.GMAIL_ADDRESS, settings.GMAIL_APP_PASSWORD)
+        server.sendmail(settings.GMAIL_ADDRESS, [to], msg.as_string())
 
 
 async def send_email(to: str, subject: str, html: str) -> None:
-    if not settings.RESEND_API_KEY:
-        logger.info(f"[email skipped, no RESEND_API_KEY set] To: {to} | Subject: {subject}")
+    if not settings.GMAIL_ADDRESS or not settings.GMAIL_APP_PASSWORD:
+        logger.info(f"[email skipped, Gmail SMTP not configured] To: {to} | Subject: {subject}")
         return
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            RESEND_API_URL,
-            headers={"Authorization": f"Bearer {settings.RESEND_API_KEY}"},
-            json={
-                "from": settings.RESEND_FROM_EMAIL,
-                "to": [to],
-                "subject": subject,
-                "html": html,
-            },
-            timeout=10.0,
+    try:
+        # smtplib is blocking — run it off the event loop so it doesn't
+        # stall other requests while the SMTP handshake happens.
+        await asyncio.to_thread(_send_sync, to, subject, html)
+    except smtplib.SMTPAuthenticationError:
+        logger.error(
+            "Gmail SMTP authentication failed — check GMAIL_ADDRESS and GMAIL_APP_PASSWORD "
+            "(must be an App Password, not the regular account password)."
         )
-        if response.status_code >= 400:
-            logger.error(f"Resend API error ({response.status_code}): {response.text}")
+    except Exception as exc:  # noqa: BLE001 — log and continue, never crash the request over email
+        logger.error(f"Gmail SMTP send failed: {exc}")
 
 
 async def send_otp_email(to: str, code: str) -> None:

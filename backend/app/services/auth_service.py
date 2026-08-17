@@ -1,6 +1,8 @@
+import asyncio
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from email_validator import EmailNotValidError, validate_email
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -35,6 +37,16 @@ class AuthService:
         """Step 1 of signup: stash the submitted details as a pending
         registration and email a 6-digit code. No `users` row is created
         yet — that only happens once the code is verified."""
+        # Reject addresses whose domain has no mail servers at all (typos,
+        # made-up domains like "example.com") before we even try to send —
+        # this is a DNS MX lookup, not a full "does this inbox exist" check,
+        # but it's the strongest signal available without sending mail.
+        try:
+            validated = await asyncio.to_thread(validate_email, data.email, check_deliverability=True)
+        except EmailNotValidError as exc:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Invalid email address: {exc}")
+        data.email = validated.normalized
+
         if await self.users.get_by_email(data.email):
             raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists.")
 
