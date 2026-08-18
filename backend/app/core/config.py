@@ -64,7 +64,7 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str | None = None
     ANTHROPIC_API_KEY: str | None = None
     GEMINI_API_KEY: str | None = None
-    DEFAULT_AI_MODEL: str = "gpt-4o-mini"
+    DEFAULT_AI_MODEL: str = "gemini/gemini-3.6-flash"
 
     # --- Email (Brevo) ---
     # If unset, verification/reset emails are skipped and just logged instead
