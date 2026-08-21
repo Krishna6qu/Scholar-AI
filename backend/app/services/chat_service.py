@@ -6,6 +6,7 @@ import litellm
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.ai_utils import resolve_api_key
 from app.core.config import settings
 from app.models.chat import Chat, ChatMessage, SenderType
 from app.repositories.chat_repository import ChatRepository
@@ -32,23 +33,6 @@ SYSTEM_PROMPT = (
 
 def _title_from_first_message(content: str, limit: int = 60) -> str:
     return content if len(content) <= limit else content[:limit].rstrip() + "…"
-
-
-def _resolve_api_key(model: str) -> str | None:
-    """
-    LiteLLM normally reads provider keys from os.environ automatically based on
-    the model's prefix, but the version pinned here has a quirk where Gemini
-    models can still fall through to a Vertex/ADC credential lookup instead of
-    the simple API-key path. Passing the key explicitly sidesteps that
-    entirely, regardless of which provider is in play.
-    """
-    if model.startswith("gemini/") or model.startswith("vertex_ai/"):
-        return settings.GEMINI_API_KEY
-    if model.startswith("claude") or model.startswith("anthropic/"):
-        return settings.ANTHROPIC_API_KEY
-    if model.startswith("gpt") or model.startswith("openai/"):
-        return settings.OPENAI_API_KEY
-    return None
 
 
 class ChatService:
@@ -134,13 +118,34 @@ class ChatService:
 
         await self.repo.add_message(chat.id, SenderType.user, content)
 
+        # Root cause of a real bug: this used to read `chat.model_used`, which
+        # is set once at chat-creation time and never revisited. Any chat
+        # created before DEFAULT_AI_MODEL changed (e.g. from an OpenAI model
+        # to a Gemini one) would stay permanently pinned to the old model —
+        # including one no API key was configured for — even though every
+        # *new* chat correctly picked up the new default. Always resolving to
+        # today's default here means changing DEFAULT_AI_MODEL fixes every
+        # chat, not just new ones; the self-heal below keeps the stored
+        # value in sync so it stays accurate for display/analytics.
+        model = settings.DEFAULT_AI_MODEL
+        if chat.model_used != model:
+            chat.model_used = model
+
+        api_key = resolve_api_key(model)
+        if not api_key:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                f"No API key is configured for model '{model}'. Set the matching "
+                f"provider key (e.g. GEMINI_API_KEY, OPENAI_API_KEY, or "
+                f"ANTHROPIC_API_KEY) in the environment.",
+            )
+
         start = time.perf_counter()
-        model = chat.model_used or settings.DEFAULT_AI_MODEL
         try:
             response = await litellm.acompletion(
                 model=model,
                 messages=history,
-                api_key=_resolve_api_key(model),
+                api_key=api_key,
             )
             reply = response.choices[0].message.content
             usage = getattr(response, "usage", None)

@@ -6,6 +6,7 @@ import litellm
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.ai_utils import resolve_api_key
 from app.core.config import settings
 from app.core.limits import DAILY_LIMITS
 from app.repositories.quiz_repository import QuizRepository
@@ -20,16 +21,6 @@ DIFFICULTY_GUIDANCE = {
         "would ask to test true mastery, including edge cases and 'why' questions, not just 'what'."
     ),
 }
-
-
-def _resolve_api_key(model: str) -> str | None:
-    if model.startswith("gemini/") or model.startswith("vertex_ai/"):
-        return settings.GEMINI_API_KEY
-    if model.startswith("claude") or model.startswith("anthropic/"):
-        return settings.ANTHROPIC_API_KEY
-    if model.startswith("gpt") or model.startswith("openai/"):
-        return settings.OPENAI_API_KEY
-    return None
 
 
 def _extract_json(raw: str) -> dict:
@@ -105,7 +96,7 @@ class QuizService:
             response = await litellm.acompletion(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
-                api_key=_resolve_api_key(model),
+                api_key=resolve_api_key(model),
             )
             parsed = _extract_json(response.choices[0].message.content)
         except json.JSONDecodeError:

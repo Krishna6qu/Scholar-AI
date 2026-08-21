@@ -12,7 +12,7 @@ in-memory and log a warning, since that's still much better than nothing
 for local dev / a single-instance deployment.
 """
 from loguru import logger
-from slowapi import Limiter
+from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 
 from app.core.config import settings
@@ -28,3 +28,8 @@ else:
     )
 
 limiter = Limiter(key_func=get_remote_address, storage_uri=storage_uri)
+
+# Re-exported so app/main.py doesn't need its own import of slowapi's private
+# handler name — this is the handler that turns a RateLimitExceeded
+# exception into a proper 429 response instead of an unhandled 500.
+rate_limit_exceeded_handler = _rate_limit_exceeded_handler

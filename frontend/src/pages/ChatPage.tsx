@@ -34,6 +34,23 @@ export default function ChatPage() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Two race conditions this guards against, both real and reproducible:
+  //
+  // 1. Switching chats quickly: if chatId changes again before an in-flight
+  //    GET /chats/:id resolves, the earlier request's response can land
+  //    *after* the newer one and overwrite it with stale messages.
+  //    fetchIdRef ignores any response that isn't from the latest request.
+  //
+  // 2. Sending the first message of a brand-new chat: creating the chat and
+  //    navigating to /chat/:id triggers this same effect, whose GET request
+  //    races with the in-flight POST /chats/:id/messages call already
+  //    building the message list optimistically — causing the assistant's
+  //    reply to either flash-and-vanish or appear twice. justCreatedChatId
+  //    tells the effect to skip its fetch for a chat this component just
+  //    created itself, since local state is already correct for it.
+  const fetchIdRef = useRef(0);
+  const justCreatedChatId = useRef<string | null>(null);
+
   // Load the chat list once, and whenever a chat finishes sending (title may
   // have just been set from the first message).
   async function refreshChatList() {
@@ -51,13 +68,24 @@ export default function ChatPage() {
       setMessages([]);
       return;
     }
+
+    if (justCreatedChatId.current === chatId) {
+      justCreatedChatId.current = null;
+      return;
+    }
+
+    const requestId = ++fetchIdRef.current;
     setLoadingChat(true);
     api
       .get(`/chats/${chatId}`)
       .then(({ data }) => {
-        setMessages(data.messages);
+        if (requestId === fetchIdRef.current) {
+          setMessages(data.messages);
+        }
       })
-      .finally(() => setLoadingChat(false));
+      .finally(() => {
+        if (requestId === fetchIdRef.current) setLoadingChat(false);
+      });
   }, [chatId]);
 
   useEffect(() => {
@@ -143,6 +171,7 @@ export default function ChatPage() {
       if (!activeChatId) {
         const { data: newChat } = await api.post("/chats", {});
         activeChatId = newChat.id;
+        justCreatedChatId.current = activeChatId;
         navigate(`/chat/${activeChatId}`, { replace: true });
       }
 
