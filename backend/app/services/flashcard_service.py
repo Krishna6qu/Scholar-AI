@@ -1,10 +1,9 @@
 import uuid
 
-import litellm
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.ai_utils import extract_json, resolve_api_key
+from app.core.ai_utils import acompletion_with_retry, ai_error_response, extract_json, resolve_api_key
 from app.core.config import settings
 from app.core.limits import DAILY_LIMITS
 from app.repositories.file_repository import FileRepository
@@ -55,14 +54,15 @@ class FlashcardService:
         model = settings.DEFAULT_AI_MODEL
 
         try:
-            response = await litellm.acompletion(
+            response = await acompletion_with_retry(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=resolve_api_key(model),
             )
             parsed = extract_json(response.choices[0].message.content)
         except Exception as e:
-            raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"The AI could not generate flashcards: {e}")
+            status_code, message = ai_error_response(e, "generate flashcards")
+            raise HTTPException(status_code, message)
 
         cards = parsed.get("cards", [])
         if not cards:

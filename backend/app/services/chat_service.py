@@ -2,11 +2,10 @@ import re
 import time
 import uuid
 
-import litellm
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.ai_utils import resolve_api_key
+from app.core.ai_utils import ai_error_response, acompletion_with_retry, resolve_api_key
 from app.core.config import settings
 from app.models.chat import Chat, ChatMessage, SenderType
 from app.repositories.chat_repository import ChatRepository
@@ -142,7 +141,7 @@ class ChatService:
 
         start = time.perf_counter()
         try:
-            response = await litellm.acompletion(
+            response = await acompletion_with_retry(
                 model=model,
                 messages=history,
                 api_key=api_key,
@@ -151,10 +150,8 @@ class ChatService:
             usage = getattr(response, "usage", None)
             token_count = getattr(usage, "total_tokens", None) if usage else None
         except Exception as e:
-            raise HTTPException(
-                status.HTTP_502_BAD_GATEWAY,
-                f"The AI provider could not be reached or rejected the request: {e}",
-            )
+            status_code, message = ai_error_response(e, "be reached")
+            raise HTTPException(status_code, message)
         elapsed_ms = int((time.perf_counter() - start) * 1000)
 
         return await self.repo.add_message(

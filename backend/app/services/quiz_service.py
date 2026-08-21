@@ -2,11 +2,10 @@ import json
 import re
 import uuid
 
-import litellm
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.ai_utils import resolve_api_key
+from app.core.ai_utils import acompletion_with_retry, ai_error_response, resolve_api_key
 from app.core.config import settings
 from app.core.limits import DAILY_LIMITS
 from app.repositories.quiz_repository import QuizRepository
@@ -93,7 +92,7 @@ class QuizService:
         model = settings.DEFAULT_AI_MODEL
 
         try:
-            response = await litellm.acompletion(
+            response = await acompletion_with_retry(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=resolve_api_key(model),
@@ -105,7 +104,8 @@ class QuizService:
                 "The AI returned a response that couldn't be parsed as a quiz. Please try again.",
             )
         except Exception as e:
-            raise HTTPException(status.HTTP_502_BAD_GATEWAY, f"The AI provider could not generate the quiz: {e}")
+            status_code, message = ai_error_response(e, "generate the quiz")
+            raise HTTPException(status_code, message)
 
         questions = parsed.get("questions", [])
         if not questions:
