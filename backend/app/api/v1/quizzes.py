@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user
@@ -40,8 +40,9 @@ async def generate_quiz(
 async def list_quizzes(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=100),
 ):
-    return await QuizService(db).list_quizzes(current_user.id)
+    return await QuizService(db).list_quizzes(current_user.id, limit)
 
 
 @router.get("/{quiz_id}", response_model=QuizTakeResponse)

@@ -171,7 +171,7 @@ export default function ChatPage() {
       if (!activeChatId) {
         const { data: newChat } = await api.post("/chats", {});
         activeChatId = newChat.id;
-        justCreatedChatId.current = activeChatId;
+        justCreatedChatId.current = activeChatId ?? null;
         navigate(`/chat/${activeChatId}`, { replace: true });
       }
 

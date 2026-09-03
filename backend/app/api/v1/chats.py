@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user
@@ -33,8 +33,9 @@ async def create_chat(
 async def list_chats(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=100),
 ):
-    return await ChatService(db).list_chats(current_user.id)
+    return await ChatService(db).list_chats(current_user.id, limit)
 
 
 @router.get("/{chat_id}", response_model=ChatDetailResponse)

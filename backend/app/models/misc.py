@@ -37,7 +37,7 @@ class AuditLog(Base, UUIDPKMixin):
     __tablename__ = "audit_logs"
 
     user_id: Mapped[uuid.UUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     action: Mapped[str] = mapped_column(String(120))
     entity_type: Mapped[str | None] = mapped_column(String(100))

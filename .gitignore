@@ -12,7 +12,11 @@ frontend/dist/
 frontend/.env
 
 # General
+.env
+*.env
+**/.env
 .DS_Store
 *.pyc
 .vscode/
 .idea/
+*.tsbuildinfo

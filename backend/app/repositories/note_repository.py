@@ -20,11 +20,12 @@ class NoteRepository:
         await self.db.refresh(note)
         return note
 
-    async def list_notes(self, owner_id: uuid.UUID) -> list[ShortNote]:
+    async def list_notes(self, owner_id: uuid.UUID, limit: int = 50) -> list[ShortNote]:
         result = await self.db.execute(
             select(ShortNote)
             .where(ShortNote.owner_id == owner_id, ShortNote.deleted_at.is_(None))
             .order_by(ShortNote.created_at.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 

@@ -73,11 +73,12 @@ class QuizRepository:
         await self.db.refresh(option)
         return option
 
-    async def list_quizzes(self, owner_id: uuid.UUID) -> list[Quiz]:
+    async def list_quizzes(self, owner_id: uuid.UUID, limit: int = 50) -> list[Quiz]:
         result = await self.db.execute(
             select(Quiz)
             .where(Quiz.owner_id == owner_id, Quiz.deleted_at.is_(None))
             .order_by(Quiz.created_at.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 

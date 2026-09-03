@@ -63,8 +63,8 @@ class NoteService:
         title = parsed.get("title") or f"{data.topic.strip().title()} Notes"
         return await self.repo.create(user_id, title, content, data.source_chat_id)
 
-    async def list_notes(self, user_id: uuid.UUID):
-        return await self.repo.list_notes(user_id)
+    async def list_notes(self, user_id: uuid.UUID, limit: int = 50):
+        return await self.repo.list_notes(user_id, limit)
 
     async def get_note(self, note_id: uuid.UUID, user_id: uuid.UUID):
         note = await self.repo.get_note(note_id, user_id)

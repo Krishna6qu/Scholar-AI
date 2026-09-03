@@ -19,11 +19,12 @@ class ChatRepository:
         await self.db.refresh(chat)
         return chat
 
-    async def list_chats(self, user_id: uuid.UUID) -> list[Chat]:
+    async def list_chats(self, user_id: uuid.UUID, limit: int = 50) -> list[Chat]:
         result = await self.db.execute(
             select(Chat)
             .where(Chat.user_id == user_id, Chat.deleted_at.is_(None))
             .order_by(Chat.updated_at.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 

@@ -43,8 +43,8 @@ class ChatService:
     async def create_chat(self, user_id: uuid.UUID, title: str | None) -> Chat:
         return await self.repo.create_chat(user_id, title, settings.DEFAULT_AI_MODEL)
 
-    async def list_chats(self, user_id: uuid.UUID) -> list[Chat]:
-        return await self.repo.list_chats(user_id)
+    async def list_chats(self, user_id: uuid.UUID, limit: int = 50) -> list[Chat]:
+        return await self.repo.list_chats(user_id, limit)
 
     async def get_chat(self, chat_id: uuid.UUID, user_id: uuid.UUID) -> Chat:
         chat = await self.repo.get_chat(chat_id, user_id, with_messages=True)

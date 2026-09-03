@@ -137,8 +137,8 @@ class QuizService:
 
         return quiz
 
-    async def list_quizzes(self, user_id: uuid.UUID):
-        return await self.repo.list_quizzes(user_id)
+    async def list_quizzes(self, user_id: uuid.UUID, limit: int = 50):
+        return await self.repo.list_quizzes(user_id, limit)
 
     async def list_recent_attempts(self, user_id: uuid.UUID, limit: int = 5):
         return await self.repo.list_recent_attempts(user_id, limit)
