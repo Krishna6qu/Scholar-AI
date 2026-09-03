@@ -30,11 +30,12 @@ class MindMapRepository:
         await self.db.refresh(mm)
         return mm
 
-    async def list_maps(self, owner_id: uuid.UUID) -> list[MindMap]:
+    async def list_maps(self, owner_id: uuid.UUID, limit: int = 50) -> list[MindMap]:
         result = await self.db.execute(
             select(MindMap)
             .where(MindMap.owner_id == owner_id, MindMap.deleted_at.is_(None))
             .order_by(MindMap.created_at.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 
@@ -49,3 +50,10 @@ class MindMapRepository:
     async def soft_delete(self, mm: MindMap) -> None:
         mm.deleted_at = datetime.now(timezone.utc)
         await self.db.commit()
+
+    async def mark_viewed(self, mm: MindMap) -> MindMap:
+        if mm.viewed_at is None:
+            mm.viewed_at = datetime.now(timezone.utc)
+            await self.db.commit()
+            await self.db.refresh(mm)
+        return mm

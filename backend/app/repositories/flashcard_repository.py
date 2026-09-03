@@ -42,11 +42,12 @@ class FlashcardRepository:
             )
         await self.db.commit()
 
-    async def list_sets(self, owner_id: uuid.UUID) -> list[Flashcard]:
+    async def list_sets(self, owner_id: uuid.UUID, limit: int = 50) -> list[Flashcard]:
         result = await self.db.execute(
             select(Flashcard)
             .where(Flashcard.owner_id == owner_id, Flashcard.deleted_at.is_(None))
             .order_by(Flashcard.created_at.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 
@@ -65,3 +66,11 @@ class FlashcardRepository:
     async def soft_delete(self, fc: Flashcard) -> None:
         fc.deleted_at = datetime.now(timezone.utc)
         await self.db.commit()
+
+    async def mark_reviewed(self, fc: Flashcard) -> Flashcard:
+        now = datetime.now(timezone.utc)
+        fc.reviewed_at = now
+        fc.times_reviewed = (fc.times_reviewed or 0) + 1
+        await self.db.commit()
+        await self.db.refresh(fc)
+        return fc

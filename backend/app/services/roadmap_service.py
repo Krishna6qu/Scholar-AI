@@ -6,8 +6,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.ai_utils import acompletion_with_retry, ai_error_response, extract_json, resolve_api_key
 from app.core.config import settings
 from app.core.limits import DAILY_LIMITS
+from app.core.roadmap_progress import compute_progress, enrich_structure
 from app.repositories.roadmap_repository import RoadmapRepository
-from app.schemas.roadmap import RoadmapGenerateRequest
+from app.schemas.roadmap import RoadmapDetail, RoadmapGenerateRequest, RoadmapStepToggleRequest, RoadmapSummary
 
 
 def _build_prompt(data: RoadmapGenerateRequest) -> str:
@@ -43,6 +44,27 @@ Respond with ONLY valid JSON (no markdown code fences, no commentary), in exactl
 }}"""
 
 
+def _to_summary(rm) -> RoadmapSummary:
+    return RoadmapSummary(
+        id=rm.id,
+        title=rm.title,
+        topic=rm.topic,
+        created_at=rm.created_at,
+        progress_percentage=compute_progress(rm.json_structure, rm.step_progress),
+    )
+
+
+def _to_detail(rm) -> RoadmapDetail:
+    return RoadmapDetail(
+        id=rm.id,
+        title=rm.title,
+        topic=rm.topic,
+        created_at=rm.created_at,
+        progress_percentage=compute_progress(rm.json_structure, rm.step_progress),
+        json_structure=enrich_structure(rm.json_structure, rm.step_progress),
+    )
+
+
 class RoadmapService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -75,19 +97,33 @@ class RoadmapService:
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, "The AI did not return a valid roadmap. Please try again.")
 
         title = parsed.get("title") or f"{data.topic.strip().title()} Roadmap"
-        return await self.repo.create(user_id, title, data.topic, {"phases": phases})
+        rm = await self.repo.create(user_id, title, data.topic, {"phases": phases})
+        return _to_detail(rm)
 
-    async def list_roadmaps(self, user_id: uuid.UUID):
-        return await self.repo.list_roadmaps(user_id)
+    async def list_roadmaps(self, user_id: uuid.UUID, limit: int = 50) -> list[RoadmapSummary]:
+        roadmaps = await self.repo.list_roadmaps(user_id, limit)
+        return [_to_summary(rm) for rm in roadmaps]
 
-    async def get_roadmap(self, roadmap_id: uuid.UUID, user_id: uuid.UUID):
+    async def get_roadmap(self, roadmap_id: uuid.UUID, user_id: uuid.UUID) -> RoadmapDetail:
         rm = await self.repo.get_roadmap(roadmap_id, user_id)
         if rm is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Roadmap not found.")
-        return rm
+        return _to_detail(rm)
 
     async def delete_roadmap(self, roadmap_id: uuid.UUID, user_id: uuid.UUID):
         rm = await self.repo.get_roadmap(roadmap_id, user_id)
         if rm is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Roadmap not found.")
         await self.repo.soft_delete(rm)
+
+    async def toggle_step(
+        self, roadmap_id: uuid.UUID, user_id: uuid.UUID, data: RoadmapStepToggleRequest
+    ) -> RoadmapDetail:
+        rm = await self.repo.get_roadmap(roadmap_id, user_id)
+        if rm is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Roadmap not found.")
+        try:
+            rm = await self.repo.toggle_step(rm, data.phase_index, data.step_index, data.is_completed)
+        except ValueError as e:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, str(e))
+        return _to_detail(rm)

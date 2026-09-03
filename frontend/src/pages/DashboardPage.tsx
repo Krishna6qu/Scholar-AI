@@ -15,6 +15,7 @@ import {
   Layers,
   Share2,
   UserX,
+  CheckCircle2,
   RefreshCw,
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
@@ -69,16 +70,20 @@ interface FlashcardSummary {
   id: string;
   title: string;
   created_at: string;
+  reviewed_at?: string | null;
+  times_reviewed?: number;
 }
 interface MindMapSummary {
   id: string;
   title: string;
   created_at: string;
+  viewed_at?: string | null;
 }
 interface RoadmapSummary {
   id: string;
   title: string;
   created_at: string;
+  progress_percentage?: number;
 }
 
 export default function DashboardPage() {
@@ -341,8 +346,17 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-2">
                   {recentFlashcards.map((f) => (
-                    <Link key={f.id} to={`/study/flashcards/${f.id}`} className="block truncate text-sm text-void-200 hover:text-white bg-void-900 border border-void-700 rounded-lg px-3 py-2 transition-colors">
-                      {f.title}
+                    <Link
+                      key={f.id}
+                      to={`/study/flashcards/${f.id}`}
+                      className="flex items-center justify-between text-sm text-void-200 hover:text-white bg-void-900 border border-void-700 rounded-lg px-3 py-2 transition-colors"
+                    >
+                      <span className="truncate">{f.title}</span>
+                      {f.reviewed_at && (
+                        <span title="Deck reviewed" className="ml-2 shrink-0">
+                          <CheckCircle2 className="w-4 h-4 text-neon-cyan" />
+                        </span>
+                      )}
                     </Link>
                   ))}
                 </div>
@@ -359,8 +373,17 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-2">
                   {recentMindMaps.map((m) => (
-                    <Link key={m.id} to={`/study/mindmap/${m.id}`} className="block truncate text-sm text-void-200 hover:text-white bg-void-900 border border-void-700 rounded-lg px-3 py-2 transition-colors">
-                      {m.title}
+                    <Link
+                      key={m.id}
+                      to={`/study/mindmap/${m.id}`}
+                      className="flex items-center justify-between text-sm text-void-200 hover:text-white bg-void-900 border border-void-700 rounded-lg px-3 py-2 transition-colors"
+                    >
+                      <span className="truncate">{m.title}</span>
+                      {m.viewed_at && (
+                        <span title="Mind map viewed" className="ml-2 shrink-0">
+                          <CheckCircle2 className="w-4 h-4 text-neon-pink" />
+                        </span>
+                      )}
                     </Link>
                   ))}
                 </div>
@@ -377,8 +400,17 @@ export default function DashboardPage() {
               ) : (
                 <div className="space-y-2">
                   {recentRoadmaps.map((r) => (
-                    <Link key={r.id} to={`/roadmap/${r.id}`} className="block truncate text-sm text-void-200 hover:text-white bg-void-900 border border-void-700 rounded-lg px-3 py-2 transition-colors">
-                      {r.title}
+                    <Link
+                      key={r.id}
+                      to={`/roadmap/${r.id}`}
+                      className="flex items-center justify-between text-sm text-void-200 hover:text-white bg-void-900 border border-void-700 rounded-lg px-3 py-2 transition-colors"
+                    >
+                      <span className="truncate">{r.title}</span>
+                      {r.progress_percentage != null && (
+                        <span className="text-xs text-neon-lime ml-2 shrink-0">
+                          {Math.round(r.progress_percentage)}%
+                        </span>
+                      )}
                     </Link>
                   ))}
                 </div>

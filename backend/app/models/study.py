@@ -91,6 +91,8 @@ class Flashcard(Base, UUIDPKMixin, SoftDeleteMixin):
     source_chat_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("chats.id"), nullable=True)
     source_file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("uploaded_files.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()")
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    times_reviewed: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
     items: Mapped[list["FlashcardItem"]] = relationship(back_populates="flashcard", cascade="all, delete-orphan")
 
@@ -126,3 +128,4 @@ class MindMap(Base, UUIDPKMixin, SoftDeleteMixin):
     source_chat_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("chats.id"), nullable=True)
     source_file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("uploaded_files.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()")
+    viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

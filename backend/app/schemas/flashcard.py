@@ -25,7 +25,17 @@ class FlashcardSetSummary(BaseModel):
     id: uuid.UUID
     title: str
     created_at: datetime
+    reviewed_at: datetime | None = None
+    times_reviewed: int = 0
 
 
 class FlashcardSetDetail(FlashcardSetSummary):
     items: list[FlashcardItemResponse] = []
+
+
+class FlashcardCompleteResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    reviewed_at: datetime | None
+    times_reviewed: int

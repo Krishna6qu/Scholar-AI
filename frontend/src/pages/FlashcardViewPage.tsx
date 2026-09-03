@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, RotateCw } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCw, CheckCircle2 } from "lucide-react";
 import { api } from "@/lib/api";
 
 interface FlashcardItem {
@@ -14,6 +14,7 @@ interface FlashcardSet {
   id: string;
   title: string;
   items: FlashcardItem[];
+  reviewed_at: string | null;
 }
 
 export default function FlashcardViewPage() {
@@ -21,10 +22,21 @@ export default function FlashcardViewPage() {
   const [set, setSet] = useState<FlashcardSet | null>(null);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const completedRef = useRef(false);
 
   useEffect(() => {
     api.get(`/flashcards/${flashcardId}`).then(({ data }) => setSet(data));
   }, [flashcardId]);
+
+  useEffect(() => {
+    if (!set || !flashcardId || completedRef.current) return;
+    if (index === set.items.length - 1) {
+      completedRef.current = true;
+      api.post(`/flashcards/${flashcardId}/complete`).then(({ data }) => {
+        setSet((prev) => (prev ? { ...prev, reviewed_at: data.reviewed_at } : prev));
+      }).catch((err) => console.error("Failed to mark flashcard set reviewed:", err));
+    }
+  }, [index, set, flashcardId]);
 
   function next() {
     if (!set) return;
@@ -49,7 +61,14 @@ export default function FlashcardViewPage() {
         <Link to="/study" className="text-sm text-void-300 hover:text-white transition-colors mb-6 inline-block">
           ← Back to Study Pack
         </Link>
-        <h1 className="text-2xl text-white mb-1">{set.title}</h1>
+        <div className="flex items-center gap-2 mb-1">
+          <h1 className="text-2xl text-white">{set.title}</h1>
+          {set.reviewed_at && (
+            <span title="Deck reviewed">
+              <CheckCircle2 className="w-5 h-5 text-neon-lime shrink-0" />
+            </span>
+          )}
+        </div>
         <p className="text-void-300 text-sm mb-8">
           Card {index + 1} of {set.items.length} — click the card to flip it
         </p>

@@ -16,7 +16,15 @@ class MindMapSummary(BaseModel):
     id: uuid.UUID
     title: str
     created_at: datetime
+    viewed_at: datetime | None = None
 
 
 class MindMapDetail(MindMapSummary):
     json_structure: dict[str, Any]
+
+
+class MindMapCompleteResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    viewed_at: datetime | None

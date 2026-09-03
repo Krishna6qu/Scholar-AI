@@ -73,8 +73,8 @@ class FlashcardService:
         await self.repo.add_items(fc_set.id, cards)
         return await self.repo.get_set(fc_set.id, user_id)
 
-    async def list_sets(self, user_id: uuid.UUID):
-        return await self.repo.list_sets(user_id)
+    async def list_sets(self, user_id: uuid.UUID, limit: int = 50):
+        return await self.repo.list_sets(user_id, limit)
 
     async def get_set(self, flashcard_id: uuid.UUID, user_id: uuid.UUID):
         fc_set = await self.repo.get_set(flashcard_id, user_id)
@@ -87,3 +87,9 @@ class FlashcardService:
         if fc_set is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Flashcard set not found.")
         await self.repo.soft_delete(fc_set)
+
+    async def mark_complete(self, flashcard_id: uuid.UUID, user_id: uuid.UUID):
+        fc_set = await self.repo.get_set(flashcard_id, user_id)
+        if fc_set is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Flashcard set not found.")
+        return await self.repo.mark_reviewed(fc_set)

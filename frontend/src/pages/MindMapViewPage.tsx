@@ -12,6 +12,7 @@ interface MindMap {
   id: string;
   title: string;
   json_structure: TreeNode;
+  viewed_at: string | null;
 }
 
 interface PositionedNode {
@@ -85,9 +86,15 @@ export default function MindMapViewPage() {
   const [selectedNode, setSelectedNode] = useState<TreeNode | null>(null);
 
   useEffect(() => {
+    if (!mapId) return;
     api.get(`/mindmaps/${mapId}`).then(({ data }) => {
       setMap(data);
       setSelectedNode(data.json_structure);
+      if (!data.viewed_at) {
+        api.post(`/mindmaps/${mapId}/complete`).then(({ data: updated }) => {
+          setMap((prev) => (prev ? { ...prev, viewed_at: updated.viewed_at } : prev));
+        }).catch((err) => console.error("Failed to mark mind map viewed:", err));
+      }
     });
   }, [mapId]);
 

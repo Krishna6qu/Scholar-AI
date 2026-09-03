@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Download, CheckCircle2 } from "lucide-react";
+import { Download, CheckCircle2, Circle } from "lucide-react";
 import { toCanvas } from "html-to-image";
 import jsPDF from "jspdf";
 import { api } from "@/lib/api";
@@ -9,6 +9,7 @@ interface Step {
   title: string;
   description: string;
   resources: string[];
+  is_completed?: boolean;
 }
 
 interface Phase {
@@ -23,6 +24,7 @@ interface Roadmap {
   id: string;
   title: string;
   topic: string;
+  progress_percentage: number;
   json_structure: { phases: Phase[] };
 }
 
@@ -30,11 +32,30 @@ export default function RoadmapViewPage() {
   const { roadmapId } = useParams<{ roadmapId: string }>();
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
   const [downloading, setDownloading] = useState(false);
+  const [toggling, setToggling] = useState<string | null>(null);
   const captureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     api.get(`/roadmaps/${roadmapId}`).then(({ data }) => setRoadmap(data));
   }, [roadmapId]);
+
+  async function toggleStep(phaseIndex: number, stepIndex: number, isCompleted: boolean) {
+    if (!roadmapId) return;
+    const key = `${phaseIndex}:${stepIndex}`;
+    setToggling(key);
+    try {
+      const { data } = await api.post(`/roadmaps/${roadmapId}/steps/toggle`, {
+        phase_index: phaseIndex,
+        step_index: stepIndex,
+        is_completed: isCompleted,
+      });
+      setRoadmap(data);
+    } catch (err) {
+      console.error("Failed to toggle roadmap step:", err);
+    } finally {
+      setToggling(null);
+    }
+  }
 
   async function handleDownload() {
     if (!captureRef.current) return;
@@ -88,7 +109,20 @@ export default function RoadmapViewPage() {
             Career Roadmap
           </p>
           <h1 className="text-3xl text-white mb-1">{roadmap.title}</h1>
-          <p className="text-void-300 text-sm mb-10">Path to becoming: {roadmap.topic}</p>
+          <p className="text-void-300 text-sm mb-4">Path to becoming: {roadmap.topic}</p>
+
+          <div className="mb-10">
+            <div className="flex items-center justify-between text-xs text-void-300 mb-2">
+              <span>Overall progress</span>
+              <span className="text-neon-lime">{Math.round(roadmap.progress_percentage)}%</span>
+            </div>
+            <div className="w-full h-2 rounded-full bg-void-700 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-neon-violet to-neon-cyan transition-all"
+                style={{ width: `${roadmap.progress_percentage}%` }}
+              />
+            </div>
+          </div>
 
           <div className="relative pl-8">
             <div className="absolute left-[11px] top-2 bottom-2 w-px bg-void-700" />
@@ -110,9 +144,23 @@ export default function RoadmapViewPage() {
                     {phase.steps.map((step, j) => (
                       <div key={j} className="bg-void-900 border border-void-700 rounded-xl p-3.5">
                         <div className="flex items-start gap-2">
-                          <CheckCircle2 className="w-4 h-4 text-neon-violet mt-0.5 shrink-0" />
-                          <div>
-                            <p className="text-white text-sm font-medium">{step.title}</p>
+                          <button
+                            type="button"
+                            onClick={() => toggleStep(i, j, !step.is_completed)}
+                            disabled={toggling === `${i}:${j}`}
+                            className="mt-0.5 shrink-0 disabled:opacity-50"
+                            aria-label={step.is_completed ? "Mark step incomplete" : "Mark step complete"}
+                          >
+                            {step.is_completed ? (
+                              <CheckCircle2 className="w-4 h-4 text-neon-lime" />
+                            ) : (
+                              <Circle className="w-4 h-4 text-void-500 hover:text-neon-violet transition-colors" />
+                            )}
+                          </button>
+                          <div className={step.is_completed ? "opacity-70" : ""}>
+                            <p className={`text-white text-sm font-medium ${step.is_completed ? "line-through" : ""}`}>
+                              {step.title}
+                            </p>
                             <p className="text-void-300 text-xs mt-1 leading-relaxed">{step.description}</p>
                             {step.resources?.length > 0 && (
                               <div className="flex flex-wrap gap-1.5 mt-2">

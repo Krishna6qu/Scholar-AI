@@ -23,4 +23,6 @@ class Roadmap(Base, UUIDPKMixin, SoftDeleteMixin):
     title: Mapped[str] = mapped_column(String(255))
     topic: Mapped[str] = mapped_column(String(300))
     json_structure: Mapped[dict[str, Any]] = mapped_column(JSONB)
+    # Keys are "phase_index:step_index" → bool. Tracks per-step completion toggled by the user.
+    step_progress: Mapped[dict[str, bool]] = mapped_column(JSONB, default=dict, server_default="{}")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()")

@@ -1,12 +1,17 @@
 import uuid
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user
 from app.db.session import get_db
 from app.models.identity import User
-from app.schemas.flashcard import FlashcardGenerateRequest, FlashcardSetDetail, FlashcardSetSummary
+from app.schemas.flashcard import (
+    FlashcardCompleteResponse,
+    FlashcardGenerateRequest,
+    FlashcardSetDetail,
+    FlashcardSetSummary,
+)
 from app.services.flashcard_service import FlashcardService
 
 router = APIRouter()
@@ -25,8 +30,9 @@ async def generate_flashcards(
 async def list_flashcard_sets(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    limit: int = Query(default=50, ge=1, le=100),
 ):
-    return await FlashcardService(db).list_sets(current_user.id)
+    return await FlashcardService(db).list_sets(current_user.id, limit)
 
 
 @router.get("/{flashcard_id}", response_model=FlashcardSetDetail)
@@ -45,3 +51,12 @@ async def delete_flashcard_set(
     db: AsyncSession = Depends(get_db),
 ):
     await FlashcardService(db).delete_set(flashcard_id, current_user.id)
+
+
+@router.post("/{flashcard_id}/complete", response_model=FlashcardCompleteResponse)
+async def complete_flashcard_set(
+    flashcard_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    return await FlashcardService(db).mark_complete(flashcard_id, current_user.id)

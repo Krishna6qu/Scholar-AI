@@ -13,6 +13,12 @@ class RoadmapGenerateRequest(BaseModel):
     )
 
 
+class RoadmapStepToggleRequest(BaseModel):
+    phase_index: int = Field(ge=0)
+    step_index: int = Field(ge=0)
+    is_completed: bool
+
+
 class RoadmapSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -20,7 +26,16 @@ class RoadmapSummary(BaseModel):
     title: str
     topic: str
     created_at: datetime
+    progress_percentage: float = 0.0
 
 
 class RoadmapDetail(RoadmapSummary):
+    json_structure: dict[str, Any]
+
+
+class RoadmapStepToggleResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    progress_percentage: float
     json_structure: dict[str, Any]

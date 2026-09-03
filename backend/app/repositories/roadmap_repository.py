@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.roadmap_progress import step_key
 from app.models.roadmap import Roadmap
 
 
@@ -28,11 +29,12 @@ class RoadmapRepository:
         await self.db.refresh(rm)
         return rm
 
-    async def list_roadmaps(self, owner_id: uuid.UUID) -> list[Roadmap]:
+    async def list_roadmaps(self, owner_id: uuid.UUID, limit: int = 50) -> list[Roadmap]:
         result = await self.db.execute(
             select(Roadmap)
             .where(Roadmap.owner_id == owner_id, Roadmap.deleted_at.is_(None))
             .order_by(Roadmap.created_at.desc())
+            .limit(limit)
         )
         return list(result.scalars().all())
 
@@ -47,3 +49,24 @@ class RoadmapRepository:
     async def soft_delete(self, rm: Roadmap) -> None:
         rm.deleted_at = datetime.now(timezone.utc)
         await self.db.commit()
+
+    async def toggle_step(
+        self,
+        rm: Roadmap,
+        phase_index: int,
+        step_index: int,
+        is_completed: bool,
+    ) -> Roadmap:
+        phases = rm.json_structure.get("phases", [])
+        if phase_index >= len(phases):
+            raise ValueError("phase_index out of range")
+        steps = phases[phase_index].get("steps", [])
+        if step_index >= len(steps):
+            raise ValueError("step_index out of range")
+
+        progress = dict(rm.step_progress or {})
+        progress[step_key(phase_index, step_index)] = is_completed
+        rm.step_progress = progress
+        await self.db.commit()
+        await self.db.refresh(rm)
+        return rm

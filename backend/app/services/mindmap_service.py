@@ -84,8 +84,8 @@ class MindMapService:
         title = parsed.get("title") or f"{data.topic.strip().title()} Mind Map"
         return await self.repo.create(user_id, title, root, data.source_chat_id)
 
-    async def list_maps(self, user_id: uuid.UUID):
-        return await self.repo.list_maps(user_id)
+    async def list_maps(self, user_id: uuid.UUID, limit: int = 50):
+        return await self.repo.list_maps(user_id, limit)
 
     async def get_map(self, map_id: uuid.UUID, user_id: uuid.UUID):
         mm = await self.repo.get_map(map_id, user_id)
@@ -98,3 +98,9 @@ class MindMapService:
         if mm is None:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Mind map not found.")
         await self.repo.soft_delete(mm)
+
+    async def mark_complete(self, map_id: uuid.UUID, user_id: uuid.UUID):
+        mm = await self.repo.get_map(map_id, user_id)
+        if mm is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Mind map not found.")
+        return await self.repo.mark_viewed(mm)
