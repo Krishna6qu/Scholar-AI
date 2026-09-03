@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ThreeDBackground from "@/components/ThreeDBackground";
+import FocusTimer from "@/components/FocusTimer";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 const HomePage = lazy(() => import("@/pages/HomePage"));
@@ -59,6 +60,7 @@ export default function App() {
             <Route path="/roadmap/:roadmapId" element={<ProtectedRoute><RoadmapViewPage /></ProtectedRoute>} />
           </Routes>
         </Suspense>
+        <FocusTimer />
       </BrowserRouter>
     </ErrorBoundary>
   );
