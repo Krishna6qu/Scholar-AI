@@ -25,6 +25,8 @@ RETRYABLE_EXCEPTIONS = (
 
 
 def resolve_api_key(model: str) -> str | None:
+    if model.startswith("openrouter/") or "openai/gpt-5.6-luna" in model:
+        return settings.OPENROUTER_API_KEY
     if model.startswith("gemini/") or model.startswith("vertex_ai/"):
         return settings.GEMINI_API_KEY
     if model.startswith("claude") or model.startswith("anthropic/"):
@@ -47,6 +49,10 @@ async def acompletion_with_retry(
     see on every generation feature (chat, quiz, flashcards, notes, mind
     maps, roadmaps), since none of them previously retried at all.
     """
+    if "max_tokens" not in kwargs:
+        kwargs["max_tokens"] = 3000
+
+    api_key = api_key or resolve_api_key(model)
     last_exc: Exception | None = None
     for attempt in range(max_retries):
         try:

@@ -64,7 +64,8 @@ class Settings(BaseSettings):
     OPENAI_API_KEY: str | None = None
     ANTHROPIC_API_KEY: str | None = None
     GEMINI_API_KEY: str | None = None
-    DEFAULT_AI_MODEL: str = "gemini/gemini-3.6-flash"
+    OPENROUTER_API_KEY: str | None = None
+    DEFAULT_AI_MODEL: str = "openrouter/openai/gpt-5.6-luna"
 
     # --- Email (Brevo) ---
     # If unset, verification/reset emails are skipped and just logged instead
@@ -86,7 +87,7 @@ def get_settings() -> Settings:
 
     # Export AI provider keys to the real process environment so LiteLLM
     # (and any other library that reads os.environ directly) can see them.
-    for env_var in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY"):
+    for env_var in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GEMINI_API_KEY", "OPENROUTER_API_KEY"):
         value = getattr(s, env_var)
         if value:
             os.environ[env_var] = value
