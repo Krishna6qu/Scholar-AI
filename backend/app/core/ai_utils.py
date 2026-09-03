@@ -35,7 +35,7 @@ def resolve_api_key(model: str) -> str | None:
 
 
 async def acompletion_with_retry(
-    *, model: str, messages: list[dict], api_key: str | None, max_retries: int = 3, **kwargs
+    *, model: str, messages: list[dict], api_key: str | None, max_retries: int = 4, **kwargs
 ):
     """
     Thin wrapper around litellm.acompletion that retries transient provider
@@ -59,9 +59,9 @@ async def acompletion_with_retry(
             # Check if provider explicitly requested a retry delay (e.g. Gemini 429 "Please retry in 14s")
             retry_match = re.search(r"retry\s*(?:in|delay)?\s*[:\s]?\s*\"?(\d+(?:\.\d+)?)s?\"?", str(e), re.IGNORECASE)
             if retry_match:
-                delay = min(float(retry_match.group(1)) + 1.0, 45.0)
+                delay = min(float(retry_match.group(1)) + 2.0, 70.0)
             else:
-                delay = min((2 ** attempt) + random.uniform(0.5, 1.5), 15.0)
+                delay = min((2 ** attempt) + random.uniform(0.5, 1.5), 20.0)
 
             logger.warning(
                 f"AI provider transient error on '{model}' "
