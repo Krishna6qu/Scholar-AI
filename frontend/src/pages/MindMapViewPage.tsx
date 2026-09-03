@@ -165,13 +165,17 @@ export default function MindMapViewPage() {
       return { positions: [], edges: [], bounds: { minX: 0, maxX: 1000, minY: 0, maxY: 600 } };
     }
 
-    const NODE_WIDTH = 220;
-    const NODE_HEIGHT = 68;
+    function getNodeDims(depth: number) {
+      if (depth === 0) return { width: 290, height: 86 };
+      if (depth === 1) return { width: 250, height: 78 };
+      if (depth === 2) return { width: 230, height: 72 };
+      return { width: 210, height: 66 };
+    }
 
     if (layoutMode === "flow") {
       // Neural Flow (Horizontal Left-to-Right Tree)
-      const X_GAP = 280;
-      const Y_GAP = 24;
+      const X_GAP = 340;
+      const Y_GAP = 30;
 
       function getVisibleLeafCount(id: string): number {
         if (collapsedIds.has(id)) return 1;
@@ -182,12 +186,13 @@ export default function MindMapViewPage() {
 
       function placeFlowNode(id: string, depth: number, yTop: number, yBottom: number): { x: number; y: number } {
         const n = flatMap.get(id)!;
-        const x = depth * X_GAP + 60;
+        const dims = getNodeDims(depth);
+        const x = depth * X_GAP + 80;
         const totalLeaves = getVisibleLeafCount(id);
 
         if (collapsedIds.has(id) || n.childrenIds.length === 0) {
           const y = (yTop + yBottom) / 2;
-          positionsList.push({ node: n, x, y, width: NODE_WIDTH, height: NODE_HEIGHT });
+          positionsList.push({ node: n, x, y, width: dims.width, height: dims.height });
           return { x, y };
         }
 
@@ -203,16 +208,17 @@ export default function MindMapViewPage() {
         }
 
         const y = (childCoords[0].y + childCoords[childCoords.length - 1].y) / 2;
-        positionsList.push({ node: n, x, y, width: NODE_WIDTH, height: NODE_HEIGHT });
+        positionsList.push({ node: n, x, y, width: dims.width, height: dims.height });
 
         for (const cc of childCoords) {
+          const childDims = getNodeDims(depth + 1);
           edgesList.push({
             id: `${id}->${cc.childId}`,
             fromId: id,
             toId: cc.childId,
-            x1: x + NODE_WIDTH / 2,
+            x1: x + dims.width / 2,
             y1: y,
-            x2: cc.x - NODE_WIDTH / 2,
+            x2: cc.x - childDims.width / 2,
             y2: cc.y,
           });
         }
@@ -221,66 +227,61 @@ export default function MindMapViewPage() {
       }
 
       const totalLeaves = Math.max(getVisibleLeafCount(rootId), 1);
-      const totalHeight = Math.max(totalLeaves * (NODE_HEIGHT + Y_GAP), 450);
-      placeFlowNode(rootId, 0, 40, totalHeight + 40);
+      const totalHeight = Math.max(totalLeaves * (82 + Y_GAP), 520);
+      placeFlowNode(rootId, 0, 50, totalHeight + 50);
 
     } else {
-      // Orbital Galaxy Layout (360-degree radial orbits)
-      const rootNode = flatMap.get(rootId)!;
-      const centerX = 650;
-      const centerY = 450;
-      positionsList.push({ node: rootNode, x: centerX, y: centerY, width: 200, height: 72 });
+      // Orbital Galaxy Layout (Deep Multi-tier Radial Orbits)
+      const centerX = 850;
+      const centerY = 650;
 
-      if (!collapsedIds.has(rootId)) {
-        const branchCount = rootNode.childrenIds.length;
-        const ORBIT_1 = 300;
+      function placeOrbitalNode(
+        id: string,
+        depth: number,
+        parentX: number,
+        parentY: number,
+        baseAngle: number,
+        spreadAngle: number
+      ) {
+        const n = flatMap.get(id);
+        if (!n) return;
+        const dims = getNodeDims(depth);
+        positionsList.push({ node: n, x: parentX, y: parentY, width: dims.width, height: dims.height });
 
-        rootNode.childrenIds.forEach((bId, bIndex) => {
-          const bNode = flatMap.get(bId)!;
-          const baseAngle = (2 * Math.PI * bIndex) / Math.max(branchCount, 1) - Math.PI / 2;
-          const bx = centerX + Math.cos(baseAngle) * ORBIT_1;
-          const by = centerY + Math.sin(baseAngle) * ORBIT_1;
+        if (collapsedIds.has(id) || n.childrenIds.length === 0) return;
 
-          positionsList.push({ node: bNode, x: bx, y: by, width: 180, height: 56 });
+        const childCount = n.childrenIds.length;
+        const dist = depth === 0 ? 360 : Math.max(260 - depth * 35, 170);
+        const spread = depth === 0 ? 2 * Math.PI : Math.min(spreadAngle * 0.9, Math.PI / 1.5);
+
+        n.childrenIds.forEach((childId, idx) => {
+          const angleOffset =
+            childCount > 1
+              ? -spread / 2 + (spread * idx) / (childCount - 1)
+              : 0;
+          const childAngle =
+            depth === 0
+              ? (2 * Math.PI * idx) / childCount - Math.PI / 2
+              : baseAngle + angleOffset;
+
+          const cx = parentX + Math.cos(childAngle) * dist;
+          const cy = parentY + Math.sin(childAngle) * dist;
+
           edgesList.push({
-            id: `${rootId}->${bId}`,
-            fromId: rootId,
-            toId: bId,
-            x1: centerX,
-            y1: centerY,
-            x2: bx,
-            y2: by,
+            id: `${id}->${childId}`,
+            fromId: id,
+            toId: childId,
+            x1: parentX,
+            y1: parentY,
+            x2: cx,
+            y2: cy,
           });
 
-          if (!collapsedIds.has(bId) && bNode.childrenIds.length > 0) {
-            const leafCount = bNode.childrenIds.length;
-            const ORBIT_2_SPREAD = Math.PI / 3;
-            const LEAF_DIST = 190;
-
-            bNode.childrenIds.forEach((lId, lIndex) => {
-              const lNode = flatMap.get(lId)!;
-              const angleOffset =
-                leafCount > 1
-                  ? -ORBIT_2_SPREAD / 2 + (ORBIT_2_SPREAD * lIndex) / (leafCount - 1)
-                  : 0;
-              const leafAngle = baseAngle + angleOffset;
-              const lx = bx + Math.cos(leafAngle) * LEAF_DIST;
-              const ly = by + Math.sin(leafAngle) * LEAF_DIST;
-
-              positionsList.push({ node: lNode, x: lx, y: ly, width: 160, height: 48 });
-              edgesList.push({
-                id: `${bId}->${lId}`,
-                fromId: bId,
-                toId: lId,
-                x1: bx,
-                y1: by,
-                x2: lx,
-                y2: ly,
-              });
-            });
-          }
+          placeOrbitalNode(childId, depth + 1, cx, cy, childAngle, spread / Math.max(childCount * 0.7, 1.2));
         });
       }
+
+      placeOrbitalNode(rootId, 0, centerX, centerY, 0, 2 * Math.PI);
     }
 
     // Compute bounding box
@@ -724,19 +725,32 @@ export default function MindMapViewPage() {
 
                 // Depth-specific aesthetics
                 let bgGradient = "linear-gradient(135deg, rgba(38, 38, 47, 0.95), rgba(18, 18, 24, 0.95))";
-                let borderColor = isSelected ? "#22D3EE" : isPathActive ? "#A855F7" : "rgba(84, 84, 95, 0.4)";
-                let titleColor = "text-white";
-                let depthBadge = "Leaf";
+                let borderColor = isSelected ? "#22D3EE" : isPathActive ? "#A855F7" : "rgba(84, 84, 95, 0.45)";
+                let titleColor = "text-xs md:text-sm font-medium text-void-100";
+                let depthBadge = `L${node.depth}`;
 
                 if (node.depth === 0) {
-                  bgGradient = "linear-gradient(135deg, #A855F7, #7E22CE)";
-                  borderColor = "#ffffff";
-                  titleColor = "text-white font-bold";
-                  depthBadge = "Core";
+                  bgGradient = "linear-gradient(135deg, #9333EA, #581C87)";
+                  borderColor = "#F472B6";
+                  titleColor = "text-sm md:text-base font-bold text-white";
+                  depthBadge = "L0 Core";
                 } else if (node.depth === 1) {
-                  bgGradient = "linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(11, 11, 16, 0.9))";
-                  borderColor = isSelected ? "#22D3EE" : "rgba(34, 211, 238, 0.5)";
-                  depthBadge = "Branch";
+                  bgGradient = "linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(15, 23, 42, 0.95))";
+                  borderColor = isSelected ? "#22D3EE" : "rgba(34, 211, 238, 0.65)";
+                  titleColor = "text-xs md:text-sm font-semibold text-white";
+                  depthBadge = "L1 Pillar";
+                } else if (node.depth === 2) {
+                  bgGradient = "linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(15, 23, 42, 0.95))";
+                  borderColor = isSelected ? "#A855F7" : "rgba(168, 85, 247, 0.55)";
+                  depthBadge = "L2 Sub";
+                } else if (node.depth === 3) {
+                  bgGradient = "linear-gradient(135deg, rgba(244, 114, 182, 0.16), rgba(15, 23, 42, 0.95))";
+                  borderColor = isSelected ? "#F472B6" : "rgba(244, 114, 182, 0.5)";
+                  depthBadge = "L3 Principle";
+                } else {
+                  bgGradient = "linear-gradient(135deg, rgba(163, 230, 53, 0.14), rgba(15, 23, 42, 0.95))";
+                  borderColor = isSelected ? "#A3E635" : "rgba(163, 230, 53, 0.45)";
+                  depthBadge = `L${node.depth} Detail`;
                 }
 
                 return (
@@ -756,21 +770,21 @@ export default function MindMapViewPage() {
                           background: bgGradient,
                           borderColor: borderColor,
                         }}
-                        className={`w-full h-full rounded-2xl border px-3 py-2 flex flex-col justify-center transition-all duration-300 shadow-lg ${
+                        className={`w-full h-full rounded-2xl border px-3.5 py-2.5 flex flex-col justify-center transition-all duration-300 shadow-xl ${
                           isSelected
-                            ? "ring-2 ring-neon-cyan shadow-neon-cyan/40 scale-105"
+                            ? "ring-2 ring-neon-cyan shadow-neon-cyan/50 scale-105"
                             : isPathActive
-                            ? "ring-1 ring-neon-violet shadow-neon-violet/30"
+                            ? "ring-1 ring-neon-violet shadow-neon-violet/40"
                             : "hover:border-void-400 hover:scale-[1.02]"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-1.5">
-                          <span className={`text-xs truncate ${titleColor}`} title={node.name}>
+                          <span className={`truncate ${titleColor}`} title={node.name}>
                             {node.name}
                           </span>
 
                           <div className="flex items-center gap-1 shrink-0">
-                            <span className="text-[8px] uppercase tracking-wider font-mono px-1 py-0.5 rounded bg-void-950/40 text-void-300">
+                            <span className="text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded bg-void-950/60 text-void-300 font-semibold border border-void-700/50">
                               {depthBadge}
                             </span>
                             {/* Interactive Expand / Collapse Toggle for Branch Nodes */}
@@ -778,22 +792,22 @@ export default function MindMapViewPage() {
                               <button
                                 type="button"
                                 onClick={(e) => toggleCollapse(node.id, e)}
-                                className={`rounded-full px-1.5 py-0.5 text-[10px] font-mono font-bold flex items-center gap-0.5 transition-colors ${
+                                className={`rounded-full px-2 py-0.5 text-xs font-mono font-bold flex items-center gap-0.5 transition-colors ${
                                   isCollapsed
                                     ? "bg-neon-pink/20 text-neon-pink border border-neon-pink/40"
-                                    : "bg-void-700 text-void-300 hover:text-white"
+                                    : "bg-void-700/80 text-void-300 hover:text-white"
                                 }`}
                                 title={isCollapsed ? `Expand ${node.childCount} sub-branches` : "Collapse sub-branches"}
                               >
                                 <span>{node.childCount}</span>
-                                {isCollapsed ? <ChevronDown className="w-2.5 h-2.5" /> : <ChevronUp className="w-2.5 h-2.5" />}
+                                {isCollapsed ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
                               </button>
                             )}
                           </div>
                         </div>
 
                         {/* Sub-label snippet */}
-                        <p className="text-[10px] text-void-400 truncate mt-0.5">
+                        <p className="text-xs text-void-300/80 truncate mt-1">
                           {node.description}
                         </p>
                       </div>

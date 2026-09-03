@@ -79,9 +79,54 @@ async def acompletion_with_retry(
     raise last_exc
 
 
+def _repair_json(text: str) -> dict | None:
+    """Attempts to gracefully repair and close a JSON string that was truncated by token limits."""
+    start = text.find("{")
+    if start == -1:
+        start = text.find("[")
+    if start == -1:
+        return None
+    s = text[start:].strip()
+
+    stack = []
+    in_string = False
+    escape = False
+    for ch in s:
+        if escape:
+            escape = False
+            continue
+        if ch == "\\":
+            escape = True
+            continue
+        if ch == '"':
+            in_string = not in_string
+            continue
+        if not in_string:
+            if ch == "{":
+                stack.append("}")
+            elif ch == "[":
+                stack.append("]")
+            elif ch in ("}", "]"):
+                if stack and stack[-1] == ch:
+                    stack.pop()
+
+    repaired = s
+    if in_string:
+        repaired += '"'
+    # Strip any trailing comma
+    repaired = re.sub(r",\s*$", "", repaired)
+    for closer in reversed(stack):
+        repaired += closer
+
+    try:
+        return json.loads(repaired, strict=False)
+    except Exception:
+        return None
+
+
 def extract_json(raw: str) -> dict:
     """Extract JSON from raw AI response, handling markdown code fences,
-    introductory/trailing text, and unescaped control characters."""
+    introductory/trailing text, unescaped control characters, and truncated tokens."""
     stripped = raw.strip()
     # 1. Try finding JSON inside markdown code fence
     fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", stripped)
@@ -90,7 +135,9 @@ def extract_json(raw: str) -> dict:
         try:
             return json.loads(content, strict=False)
         except Exception:
-            pass
+            repaired = _repair_json(content)
+            if repaired is not None:
+                return repaired
 
     # 2. Try finding outermost object or array
     brace_match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", stripped)
@@ -98,11 +145,19 @@ def extract_json(raw: str) -> dict:
         try:
             return json.loads(brace_match.group(1).strip(), strict=False)
         except Exception:
-            pass
+            repaired = _repair_json(brace_match.group(1).strip())
+            if repaired is not None:
+                return repaired
 
-    # 3. Fallback direct parse with basic cleanup
+    # 3. Direct parse with basic cleanup and repair fallback
     cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", stripped)
-    return json.loads(cleaned, strict=False)
+    try:
+        return json.loads(cleaned, strict=False)
+    except Exception:
+        repaired = _repair_json(cleaned)
+        if repaired is not None:
+            return repaired
+        raise
 
 
 def ai_error_response(e: Exception, what: str) -> tuple[int, str]:

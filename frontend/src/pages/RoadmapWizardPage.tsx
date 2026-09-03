@@ -50,9 +50,20 @@ export default function RoadmapWizardPage() {
           />
 
           {error && (
-            <p className="text-sm text-neon-pink bg-neon-pink/10 border border-neon-pink/30 rounded-lg px-3 py-2 mb-4">
-              {error}
-            </p>
+            <div className="bg-neon-pink/10 border border-neon-pink/30 rounded-xl p-4 mb-4">
+              <p className="text-sm text-neon-pink font-medium">{error}</p>
+              {error.includes("limit") && (
+                <div className="flex items-center justify-between pt-3 mt-2 border-t border-neon-pink/20">
+                  <span className="text-xs text-void-300">Features resume after 5 hours</span>
+                  <Link
+                    to="/dashboard"
+                    className="text-xs px-3 py-1.5 rounded-lg bg-void-800 text-neon-cyan hover:bg-void-700 transition-colors font-medium border border-void-700"
+                  >
+                    View saved roadmaps →
+                  </Link>
+                </div>
+              )}
+            </div>
           )}
 
           <button

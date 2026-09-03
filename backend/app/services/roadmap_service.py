@@ -12,31 +12,32 @@ from app.schemas.roadmap import RoadmapDetail, RoadmapGenerateRequest, RoadmapSt
 
 
 def _build_prompt(data: RoadmapGenerateRequest) -> str:
-    return f"""You are a career/learning roadmap generator for a student platform. Create a \
-DETAILED, comprehensive, step-by-step roadmap for someone who wants to become: "{data.topic}".
+    return f"""You are an elite career and learning roadmap architect. Create a structured, \
+comprehensive, step-by-step career roadmap for: "{data.topic}".
 
-Cover the full journey from a beginner starting point to job-ready/proficient. Break it into \
-5-8 sequential phases (e.g. Foundations, Core Skills, Specialization, Projects, Job Prep — \
-adapt phase names to the actual topic). Each phase must have 3-6 concrete steps. Each step \
-needs a clear, actionable title, a 1-2 sentence description of what to actually do, and 2-4 \
-specific resources or resource TYPES to use (e.g. "freeCodeCamp's Python course", "build 2 \
-portfolio projects", "read the official docs") — do not invent fake URLs, just name real, \
-well-known resource types or platforms. Also estimate a realistic duration per phase.
+Cover the journey from beginner foundations to job-ready mastery. Organize into 5-6 \
+sequential phases (e.g., Foundations, Core Principles & Tools, Advanced Architecture, \
+Real-World Projects & Portfolio, Industry Readiness & Interview Prep).
 
-Respond with ONLY valid JSON (no markdown code fences, no commentary), in exactly this shape:
+Each phase must contain 2-4 actionable, high-impact steps. Each step needs:
+- A concise, punchy title
+- A clear description (1-2 sentences on what to build or master)
+- 2-3 specific real-world resources, books, or platforms (e.g. "freeCodeCamp", "Official Documentation", "LeetCode")
+
+Respond with ONLY valid JSON (no markdown fences, no explanatory commentary), in this exact format:
 {{
-  "title": "Roadmap title, e.g. 'Data Scientist Roadmap'",
+  "title": "{data.topic.strip().title()} Career Roadmap",
   "phases": [
     {{
       "order": 1,
       "title": "Phase title",
-      "duration_estimate": "e.g. '4-6 weeks'",
-      "description": "One sentence on what this phase achieves.",
+      "duration_estimate": "4-6 weeks",
+      "description": "What this phase achieves.",
       "steps": [
         {{
           "title": "Step title",
-          "description": "What to actually do.",
-          "resources": ["...", "..."]
+          "description": "What to do.",
+          "resources": ["Resource 1", "Resource 2"]
         }}
       ]
     }}
@@ -86,6 +87,7 @@ class RoadmapService:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=resolve_api_key(model),
+                max_tokens=5000,
             )
             parsed = extract_json(response.choices[0].message.content)
         except Exception as e:

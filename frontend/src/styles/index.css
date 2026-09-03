@@ -4,7 +4,12 @@
 
 @layer base {
   body {
-    @apply bg-void-950 text-void-100 font-body antialiased;
+    @apply bg-void-950 text-void-100 font-body antialiased selection:bg-neon-cyan/30 selection:text-white;
+    background-color: #040407;
+    background-image: 
+      radial-gradient(circle at 18% 18%, rgba(168, 85, 247, 0.14), transparent 45%),
+      radial-gradient(circle at 82% 12%, rgba(34, 211, 238, 0.12), transparent 45%),
+      radial-gradient(circle at 50% 88%, rgba(244, 114, 182, 0.10), transparent 50%);
   }
   h1, h2, h3 {
     @apply font-display;
@@ -13,7 +18,10 @@
 
 @layer utilities {
   .glass {
-    @apply bg-void-800/60 backdrop-blur-xl border border-void-600/60;
+    @apply bg-void-900/65 backdrop-blur-2xl border border-void-700/60 shadow-2xl;
+  }
+  .glass-card {
+    @apply bg-void-900/50 backdrop-blur-xl border border-void-700/50 hover:border-void-600/80 transition-all duration-300;
   }
   .text-gradient-neon {
     background: linear-gradient(90deg, #A855F7, #22D3EE);

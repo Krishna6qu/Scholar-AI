@@ -31,12 +31,21 @@ interface Roadmap {
 export default function RoadmapViewPage() {
   const { roadmapId } = useParams<{ roadmapId: string }>();
   const [roadmap, setRoadmap] = useState<Roadmap | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
   const captureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    api.get(`/roadmaps/${roadmapId}`).then(({ data }) => setRoadmap(data));
+    if (!roadmapId) return;
+    setError(null);
+    api
+      .get(`/roadmaps/${roadmapId}`)
+      .then(({ data }) => setRoadmap(data))
+      .catch((err) => {
+        console.error("Failed to load roadmap:", err);
+        setError(err.response?.data?.detail || "Could not load this roadmap.");
+      });
   }, [roadmapId]);
 
   async function toggleStep(phaseIndex: number, stepIndex: number, isCompleted: boolean) {
@@ -81,14 +90,38 @@ export default function RoadmapViewPage() {
     }
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-transparent flex items-center justify-center px-4">
+        <div className="glass rounded-2xl p-8 max-w-md text-center">
+          <p className="text-neon-pink font-semibold mb-2">Roadmap Not Found</p>
+          <p className="text-sm text-void-300 mb-6">{error}</p>
+          <Link
+            to="/dashboard"
+            className="px-4 py-2 rounded-lg bg-void-800 border border-void-600 text-white hover:bg-void-700 text-sm inline-block"
+          >
+            ← Return to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (!roadmap) {
-    return <div className="min-h-screen bg-void-950 flex items-center justify-center text-void-300">Loading…</div>;
+    return (
+      <div className="min-h-screen bg-transparent flex items-center justify-center text-void-300">
+        <div className="flex items-center gap-3">
+          <div className="w-5 h-5 rounded-full border-2 border-neon-cyan border-t-transparent animate-spin" />
+          <span>Loading roadmap…</span>
+        </div>
+      </div>
+    );
   }
 
   const phases = roadmap.json_structure.phases;
 
   return (
-    <div className="min-h-screen bg-void-950 px-4 py-10">
+    <div className="min-h-screen bg-transparent px-4 py-10">
       <div className="max-w-3xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <Link to="/dashboard" className="text-sm text-void-300 hover:text-white transition-colors">
