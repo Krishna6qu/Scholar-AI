@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import ThreeDBackground from "@/components/ThreeDBackground";
 import ProtectedRoute from "@/components/ProtectedRoute";
 
 const HomePage = lazy(() => import("@/pages/HomePage"));
@@ -33,6 +34,7 @@ function PageLoader() {
 export default function App() {
   return (
     <ErrorBoundary>
+      <ThreeDBackground />
       <BrowserRouter>
         <Suspense fallback={<PageLoader />}>
           <Routes>
