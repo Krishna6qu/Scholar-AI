@@ -194,8 +194,12 @@ export default function DashboardPage() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 px-6 md:px-10 py-8 max-w-5xl">
-          <div className="flex items-start justify-between mb-8">
+        <main className="relative flex-1 px-6 md:px-10 py-8 max-w-5xl overflow-hidden">
+          {/* Animated floating ambient glow orbs */}
+          <div className="absolute -top-16 -right-16 w-80 h-80 rounded-full bg-neon-violet/10 blur-3xl pointer-events-none animate-blob-pulse" />
+          <div className="absolute top-1/2 -left-20 w-72 h-72 rounded-full bg-neon-cyan/10 blur-3xl pointer-events-none animate-blob-pulse-slow" />
+
+          <div className="relative z-10 flex items-start justify-between mb-8">
             <div>
               <p className="font-mono text-xs tracking-[0.3em] uppercase text-neon-cyan mb-2">
                 Dashboard
@@ -211,9 +215,9 @@ export default function DashboardPage() {
           </div>
 
           {/* Stats cards */}
-          <div className="grid grid-cols-3 gap-4 mb-8">
+          <div className="relative z-10 grid grid-cols-3 gap-4 mb-8">
             {STATS.map((s) => (
-              <div key={s.label} className="glass rounded-xl p-4">
+              <div key={s.label} className="glass rounded-xl p-4 transition-all duration-300 hover:-translate-y-1 hover:border-void-500 hover:shadow-md">
                 <s.icon className={`w-5 h-5 mb-3 ${s.accent}`} />
                 <p className="text-2xl font-display text-white">{s.value}</p>
                 <p className="text-xs text-void-300 mt-1">{s.label}</p>
@@ -272,7 +276,7 @@ export default function DashboardPage() {
                 <Link
                   key={a.label}
                   to={a.to}
-                  className="flex items-start gap-3 rounded-xl border border-void-700 bg-void-900 p-4 hover:border-neon-violet transition-colors"
+                  className="flex items-start gap-3 rounded-xl border border-void-700 bg-void-900 p-4 transition-all duration-300 hover:-translate-y-1 hover:border-neon-violet hover:shadow-lg hover:shadow-neon-violet/10"
                 >
                   <a.icon className={`w-5 h-5 mt-0.5 shrink-0 ${a.accent}`} />
                   <div>

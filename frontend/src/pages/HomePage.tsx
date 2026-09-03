@@ -94,46 +94,74 @@ export default function HomePage() {
       </nav>
 
       {/* Hero */}
-      <section className="relative overflow-hidden bg-neon-glow">
-        <div className="relative z-10 max-w-4xl mx-auto text-center px-6 pt-24 pb-28">
-          <p className="inline-flex items-center gap-2 font-mono text-xs tracking-[0.3em] uppercase text-neon-cyan mb-6 border border-neon-cyan/30 rounded-full px-4 py-1.5">
-            <Sparkles className="w-3.5 h-3.5" />
+      <section className="relative overflow-hidden bg-neon-glow py-8">
+        {/* Animated ambient backdrop orbs */}
+        <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-neon-violet/25 blur-3xl pointer-events-none animate-blob-pulse" />
+        <div className="absolute top-1/3 -right-28 w-[28rem] h-[28rem] rounded-full bg-neon-cyan/20 blur-3xl pointer-events-none animate-blob-pulse-slow" />
+        <div className="absolute -bottom-20 left-1/3 w-80 h-80 rounded-full bg-neon-pink/15 blur-3xl pointer-events-none animate-blob-pulse" />
+
+        {/* Decorative floating preview cards (desktop) */}
+        <div className="hidden lg:block absolute left-8 top-36 glass rounded-2xl p-4 border border-neon-cyan/30 shadow-neon-cyan/20 shadow-lg animate-float max-w-xs text-left pointer-events-none z-10">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Layers className="w-4 h-4 text-neon-cyan" />
+            <span className="text-xs font-semibold text-white">Biology 101 Deck</span>
+          </div>
+          <p className="text-[11px] text-void-300">12 cards reviewed • Just now</p>
+          <div className="mt-2 h-1.5 w-full bg-void-700 rounded-full overflow-hidden">
+            <div className="h-full bg-neon-cyan w-full" />
+          </div>
+        </div>
+
+        <div className="hidden lg:block absolute right-8 top-44 glass rounded-2xl p-4 border border-neon-lime/30 shadow-neon-lime/20 shadow-lg animate-float-reverse max-w-xs text-left pointer-events-none z-10">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Map className="w-4 h-4 text-neon-lime" />
+            <span className="text-xs font-semibold text-white">Full-Stack Roadmap</span>
+          </div>
+          <p className="text-[11px] text-void-300">8 / 10 milestones completed</p>
+          <div className="mt-2 h-1.5 w-full bg-void-700 rounded-full overflow-hidden">
+            <div className="h-full bg-gradient-to-r from-neon-violet to-neon-lime w-[80%]" />
+          </div>
+        </div>
+
+        <div className="relative z-10 max-w-4xl mx-auto text-center px-6 pt-20 pb-24">
+          <p className="inline-flex items-center gap-2 font-mono text-xs tracking-[0.3em] uppercase text-neon-cyan mb-6 border border-neon-cyan/30 rounded-full px-4 py-1.5 bg-neon-cyan/5 backdrop-blur-sm animate-float">
+            <Sparkles className="w-3.5 h-3.5 text-neon-cyan animate-pulse" />
             AI-powered learning
           </p>
           <h1 className="text-5xl md:text-6xl leading-[1.1] text-white mb-6">
             Learn faster with an
             <br />
-            <span className="text-gradient-neon">AI study partner</span>
+            <span className="text-gradient-animated">AI study partner</span>
           </h1>
-          <p className="text-void-200 text-lg max-w-xl mx-auto mb-10">
+          <p className="text-void-200 text-lg max-w-xl mx-auto mb-10 leading-relaxed">
             Chat, upload your material, and turn it into quizzes, flashcards, and
             mind maps — all in one focused workspace built for students.
           </p>
           <div className="flex items-center justify-center gap-4">
             <Link
               to="/register"
-              className="px-6 py-3 rounded-full bg-gradient-to-r from-neon-violet to-neon-cyan text-void-950 font-semibold shadow-neon-violet hover:opacity-90 transition-opacity"
+              className="px-6 py-3 rounded-full bg-gradient-to-r from-neon-violet to-neon-cyan text-void-950 font-semibold shadow-neon-violet hover:opacity-95 hover:scale-105 transition-all duration-200"
             >
               Create free account
             </Link>
             <Link
               to="/login"
-              className="px-6 py-3 rounded-full border border-void-600 text-void-100 hover:border-void-400 transition-colors"
+              className="px-6 py-3 rounded-full border border-void-600 text-void-100 hover:border-void-400 hover:bg-void-800/40 transition-all duration-200"
             >
               I already have one
             </Link>
           </div>
 
           <dl className="mt-16 grid grid-cols-3 gap-6 max-w-md mx-auto text-center">
-            <div>
+            <div className="transform transition-transform hover:scale-105">
               <dt className="text-2xl font-display text-white">6</dt>
               <dd className="text-xs text-void-300 mt-1">Study tools</dd>
             </div>
-            <div>
+            <div className="transform transition-transform hover:scale-105">
               <dt className="text-2xl font-display text-white">24/7</dt>
               <dd className="text-xs text-void-300 mt-1">AI availability</dd>
             </div>
-            <div>
+            <div className="transform transition-transform hover:scale-105">
               <dt className="text-2xl font-display text-white">100%</dt>
               <dd className="text-xs text-void-300 mt-1">Your own data</dd>
             </div>
@@ -153,7 +181,7 @@ export default function HomePage() {
           {FEATURES.map((f) => (
             <div
               key={f.title}
-              className={`group glass rounded-2xl p-6 transition-shadow ${f.ring}`}
+              className={`group glass rounded-2xl p-6 transition-all duration-300 hover:-translate-y-2 hover:border-void-500 hover:shadow-xl ${f.ring}`}
             >
               <f.icon className={`w-6 h-6 mb-4 ${f.accent}`} />
               <h3 className="text-lg font-semibold text-white mb-2">{f.title}</h3>

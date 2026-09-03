@@ -21,6 +21,14 @@
     background-clip: text;
     color: transparent;
   }
+  .text-gradient-animated {
+    background: linear-gradient(90deg, #A855F7, #22D3EE, #F472B6, #A855F7);
+    background-size: 300% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: gradient-shift 6s ease infinite;
+  }
 }
 
 .prose-chat {
