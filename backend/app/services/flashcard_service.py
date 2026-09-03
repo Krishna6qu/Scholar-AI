@@ -43,7 +43,7 @@ class FlashcardService:
         if today_count >= DAILY_LIMITS["flashcards"]:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
-                f"You've reached today's limit of {DAILY_LIMITS['flashcards']} flashcard sets. Try again tomorrow.",
+                f"You've reached today's limit of {DAILY_LIMITS['flashcards']} flashcard sets. Features resume after 5 hours.",
             )
 
         file_context = None

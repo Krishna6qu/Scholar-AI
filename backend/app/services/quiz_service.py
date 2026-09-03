@@ -84,7 +84,7 @@ class QuizService:
         if today_count >= DAILY_LIMITS["quiz"]:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
-                f"You've reached today's limit of {DAILY_LIMITS['quiz']} quizzes. Try again tomorrow.",
+                f"You've reached today's limit of {DAILY_LIMITS['quiz']} quizzes. Features resume after 5 hours.",
             )
 
         breakdown = data.mix_breakdown or {data.question_type: data.total_questions}

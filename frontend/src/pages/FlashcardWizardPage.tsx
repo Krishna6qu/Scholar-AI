@@ -18,7 +18,11 @@ export default function FlashcardWizardPage() {
       const { data } = await api.post("/flashcards", { topic, count });
       navigate(`/study/flashcards/${data.id}`);
     } catch (err: any) {
-      setError(err.response?.data?.detail ?? "Could not generate flashcards. Try again.");
+      if (err.response?.status === 429) {
+        setError(err.response?.data?.detail || "Daily limit reached for flashcards. Features resume after 5 hours.");
+      } else {
+        setError(err.response?.data?.detail ?? "Could not generate flashcards. Try again.");
+      }
     } finally {
       setGenerating(false);
     }

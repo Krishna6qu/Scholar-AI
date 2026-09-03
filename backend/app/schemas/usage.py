@@ -11,3 +11,7 @@ class UsageResponse(BaseModel):
     flashcards: FeatureUsage
     mindmap: FeatureUsage
     roadmap: FeatureUsage
+    note: FeatureUsage
+    resets_in_hours: int = 5
+    any_limit_reached: bool = False
+    limit_reached_features: list[str] = []

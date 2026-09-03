@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ai_utils import acompletion_with_retry, ai_error_response, extract_json, resolve_api_key
 from app.core.config import settings
+from app.core.limits import DAILY_LIMITS
 from app.repositories.file_repository import FileRepository
 from app.repositories.note_repository import NoteRepository
 from app.schemas.note import NoteGenerateRequest
@@ -38,6 +39,13 @@ class NoteService:
         self.files = FileRepository(db)
 
     async def generate(self, user_id: uuid.UUID, data: NoteGenerateRequest):
+        today_count = await self.repo.count_today(user_id)
+        if today_count >= DAILY_LIMITS["note"]:
+            raise HTTPException(
+                status.HTTP_429_TOO_MANY_REQUESTS,
+                f"You've reached today's limit of {DAILY_LIMITS['note']} revision notes. Features resume after 5 hours.",
+            )
+
         file_context = None
         if data.source_chat_id:
             file_context = await self.files.get_chat_context_text(data.source_chat_id)

@@ -75,7 +75,7 @@ class RoadmapService:
         if today_count >= DAILY_LIMITS["roadmap"]:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
-                f"You've reached today's limit of {DAILY_LIMITS['roadmap']} roadmaps. Try again tomorrow.",
+                f"You've reached today's limit of {DAILY_LIMITS['roadmap']} roadmaps. Features resume after 5 hours.",
             )
 
         prompt = _build_prompt(data)

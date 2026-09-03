@@ -17,7 +17,11 @@ export default function NoteWizardPage() {
       const { data } = await api.post("/notes", { topic });
       navigate(`/study/notes/${data.id}`);
     } catch (err: any) {
-      setError(err.response?.data?.detail ?? "Could not generate notes. Try again.");
+      if (err.response?.status === 429) {
+        setError(err.response?.data?.detail || "Daily limit reached for revision notes. Features resume after 5 hours.");
+      } else {
+        setError(err.response?.data?.detail ?? "Could not generate notes. Try again.");
+      }
     } finally {
       setGenerating(false);
     }

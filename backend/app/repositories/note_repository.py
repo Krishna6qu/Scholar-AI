@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.study import ShortNote
@@ -10,6 +10,15 @@ from app.models.study import ShortNote
 class NoteRepository:
     def __init__(self, db: AsyncSession):
         self.db = db
+
+    async def count_today(self, owner_id: uuid.UUID) -> int:
+        today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        result = await self.db.execute(
+            select(func.count()).select_from(ShortNote).where(
+                ShortNote.owner_id == owner_id, ShortNote.created_at >= today_start, ShortNote.deleted_at.is_(None)
+            )
+        )
+        return result.scalar_one()
 
     async def create(
         self, owner_id: uuid.UUID, title: str, content: str, source_chat_id: uuid.UUID | None

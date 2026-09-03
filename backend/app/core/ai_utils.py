@@ -55,7 +55,14 @@ async def acompletion_with_retry(
             last_exc = e
             if attempt == max_retries - 1:
                 break
-            delay = (2**attempt) + random.uniform(0, 0.5)
+
+            # Check if provider explicitly requested a retry delay (e.g. Gemini 429 "Please retry in 14s")
+            retry_match = re.search(r"retry\s*(?:in|delay)?\s*[:\s]?\s*\"?(\d+(?:\.\d+)?)s?\"?", str(e), re.IGNORECASE)
+            if retry_match:
+                delay = min(float(retry_match.group(1)) + 1.0, 45.0)
+            else:
+                delay = min((2 ** attempt) + random.uniform(0.5, 1.5), 15.0)
+
             logger.warning(
                 f"AI provider transient error on '{model}' "
                 f"(attempt {attempt + 1}/{max_retries}), retrying in {delay:.1f}s: {e}"
@@ -67,11 +74,28 @@ async def acompletion_with_retry(
 
 
 def extract_json(raw: str) -> dict:
-    """Models sometimes wrap JSON in markdown code fences despite instructions
-    not to — strip those before parsing. strict=False also tolerates literal
-    control characters (e.g. raw newlines) inside string values, which models
-    occasionally produce in longer text fields like notes content."""
-    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
+    """Extract JSON from raw AI response, handling markdown code fences,
+    introductory/trailing text, and unescaped control characters."""
+    stripped = raw.strip()
+    # 1. Try finding JSON inside markdown code fence
+    fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", stripped)
+    if fence_match:
+        content = fence_match.group(1).strip()
+        try:
+            return json.loads(content, strict=False)
+        except Exception:
+            pass
+
+    # 2. Try finding outermost object or array
+    brace_match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", stripped)
+    if brace_match:
+        try:
+            return json.loads(brace_match.group(1).strip(), strict=False)
+        except Exception:
+            pass
+
+    # 3. Fallback direct parse with basic cleanup
+    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", stripped)
     return json.loads(cleaned, strict=False)
 
 

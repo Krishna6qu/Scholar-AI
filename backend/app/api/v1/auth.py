@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.identity import User
 from app.repositories.flashcard_repository import FlashcardRepository
 from app.repositories.mindmap_repository import MindMapRepository
+from app.repositories.note_repository import NoteRepository
 from app.repositories.quiz_repository import QuizRepository
 from app.repositories.roadmap_repository import RoadmapRepository
 from app.repositories.settings_repository import SettingsRepository
@@ -131,12 +132,29 @@ async def get_my_usage(
     flashcards_used = await FlashcardRepository(db).count_today(current_user.id)
     mindmap_used = await MindMapRepository(db).count_today(current_user.id)
     roadmap_used = await RoadmapRepository(db).count_today(current_user.id)
+    note_used = await NoteRepository(db).count_today(current_user.id)
+
+    reached: list[str] = []
+    if quiz_used >= DAILY_LIMITS["quiz"]:
+        reached.append("quiz")
+    if flashcards_used >= DAILY_LIMITS["flashcards"]:
+        reached.append("flashcards")
+    if mindmap_used >= DAILY_LIMITS["mindmap"]:
+        reached.append("mindmap")
+    if roadmap_used >= DAILY_LIMITS["roadmap"]:
+        reached.append("roadmap")
+    if note_used >= DAILY_LIMITS["note"]:
+        reached.append("note")
 
     return UsageResponse(
         quiz=FeatureUsage(used=quiz_used, limit=DAILY_LIMITS["quiz"]),
         flashcards=FeatureUsage(used=flashcards_used, limit=DAILY_LIMITS["flashcards"]),
         mindmap=FeatureUsage(used=mindmap_used, limit=DAILY_LIMITS["mindmap"]),
         roadmap=FeatureUsage(used=roadmap_used, limit=DAILY_LIMITS["roadmap"]),
+        note=FeatureUsage(used=note_used, limit=DAILY_LIMITS["note"]),
+        resets_in_hours=5,
+        any_limit_reached=len(reached) > 0,
+        limit_reached_features=reached,
     )
 
 

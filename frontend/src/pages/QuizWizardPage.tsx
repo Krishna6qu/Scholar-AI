@@ -89,7 +89,11 @@ export default function QuizWizardPage() {
       const { data } = await api.post("/quizzes/generate", payload);
       navigate(`/study/quiz/${data.id}`);
     } catch (err: any) {
-      setError(err.response?.data?.detail ?? "Couldn't generate the quiz. Please try again.");
+      if (err.response?.status === 429) {
+        setError(err.response?.data?.detail || "Daily limit reached for quizzes. Features resume after 5 hours.");
+      } else {
+        setError(err.response?.data?.detail ?? "Couldn't generate the quiz. Please try again.");
+      }
     } finally {
       setGenerating(false);
     }

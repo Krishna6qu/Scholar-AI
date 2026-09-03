@@ -17,6 +17,7 @@ import {
   UserX,
   CheckCircle2,
   RefreshCw,
+  AlertTriangle,
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
 import { api } from "@/lib/api";
@@ -45,12 +46,17 @@ interface Usage {
   flashcards: FeatureUsage;
   mindmap: FeatureUsage;
   roadmap: FeatureUsage;
+  note: FeatureUsage;
+  resets_in_hours?: number;
+  any_limit_reached?: boolean;
+  limit_reached_features?: string[];
 }
 const USAGE_META = [
   { key: "quiz" as const, label: "Quizzes", icon: Brain, accent: "text-neon-violet", bar: "from-neon-violet to-neon-violet" },
   { key: "flashcards" as const, label: "Flashcards", icon: Layers, accent: "text-neon-cyan", bar: "from-neon-cyan to-neon-cyan" },
   { key: "mindmap" as const, label: "Mind Maps", icon: Share2, accent: "text-neon-pink", bar: "from-neon-pink to-neon-pink" },
   { key: "roadmap" as const, label: "Roadmaps", icon: Map, accent: "text-neon-lime", bar: "from-neon-lime to-neon-lime" },
+  { key: "note" as const, label: "Short Notes", icon: FileText, accent: "text-neon-cyan", bar: "from-neon-cyan to-neon-cyan" },
 ];
 
 interface ChatSummary {
@@ -242,23 +248,64 @@ export default function DashboardPage() {
                 {usageError}
               </p>
             )}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+            {/* Limit Reached Alert Banner */}
+            {(() => {
+              const reachedLabels = USAGE_META.filter((m) => {
+                const u = usage?.[m.key];
+                return u && u.used >= u.limit && u.limit > 0;
+              }).map((m) => m.label);
+              const hasReachedLimit = reachedLabels.length > 0;
+              const resumeHours = usage?.resets_in_hours ?? 5;
+
+              if (!hasReachedLimit) return null;
+
+              return (
+                <div className="mb-4 glass rounded-xl p-4 border border-neon-pink/50 bg-neon-pink/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-neon-pink/10 animate-pulse">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-neon-pink/20 border border-neon-pink/30 flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-4 h-4 text-neon-pink" />
+                    </div>
+                    <div>
+                      <p className="text-xs sm:text-sm font-semibold text-white">
+                        Daily limit reached for {reachedLabels.join(", ")}
+                      </p>
+                      <p className="text-[11px] text-void-300 mt-0.5">
+                        Features resume after {resumeHours} hours (at daily cycle reset).
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[11px] font-mono font-semibold text-neon-pink px-2.5 py-1 rounded-full border border-neon-pink/30 bg-void-950/70 self-start sm:self-auto shrink-0">
+                    Resumes in {resumeHours}h
+                  </span>
+                </div>
+              );
+            })()}
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
               {USAGE_META.map((m) => {
                 const u = usage?.[m.key];
                 const pct = u && u.limit > 0 ? Math.min((u.used / u.limit) * 100, 100) : 0;
                 const atLimit = u ? u.used >= u.limit && u.limit > 0 : false;
                 return (
-                  <div key={m.key} className="glass rounded-xl p-4">
+                  <div
+                    key={m.key}
+                    className={`glass rounded-xl p-4 border transition-all ${
+                      atLimit ? "border-neon-pink/60 bg-neon-pink/5" : "border-void-700/60"
+                    }`}
+                  >
                     <div className="flex items-center justify-between mb-2">
                       <m.icon className={`w-4 h-4 ${m.accent}`} />
-                      <span className={`text-xs ${atLimit ? "text-neon-pink" : "text-void-300"}`}>
+                      <span className={`text-xs font-mono font-medium ${atLimit ? "text-neon-pink" : "text-void-300"}`}>
                         {u ? `${u.used}/${u.limit}` : usageLoading ? "…" : "—"}
                       </span>
                     </div>
                     <p className="text-xs text-void-300 mb-2">{m.label}</p>
                     <div className="w-full h-1.5 rounded-full bg-void-700 overflow-hidden">
                       <div
-                        className={`h-full bg-gradient-to-r ${m.bar} transition-all`}
+                        className={`h-full bg-gradient-to-r ${
+                          atLimit ? "from-neon-pink to-neon-pink" : m.bar
+                        } transition-all`}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
