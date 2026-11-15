@@ -23,6 +23,61 @@ interface Note {
   created_at?: string;
 }
 
+function generateNoteSummary(title: string, content: string): string {
+  if (!content) return `Summary of "${title}":\nCan you explain the key concepts and test my understanding?`;
+
+  // Clean lines from markdown code fences and whitespace
+  const rawLines = content
+    .split("\n")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !l.startsWith("```"));
+
+  // 1. Extract bullet points (- / * / • or numbered 1. / 2.)
+  const bulletCandidates: string[] = [];
+  for (const line of rawLines) {
+    const match = line.match(/^[-*•]\s+(.+)$/) || line.match(/^\d+[\.)]\s+(.+)$/);
+    if (match) {
+      const clean = match[1]
+        .replace(/[*_`#]/g, "")
+        .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+        .trim();
+      if (clean.length >= 15 && clean.length <= 250) {
+        bulletCandidates.push(clean);
+      }
+    }
+  }
+
+  // If we have bullet points from the notes, format top 3 to 4 lines
+  if (bulletCandidates.length >= 2) {
+    const selected = bulletCandidates.slice(0, 4);
+    return `Summary of "${title}":\n` + selected.map((b) => `• ${b}`).join("\n");
+  }
+
+  // 2. Otherwise extract meaningful sentences from non-heading paragraphs
+  const paragraphText = rawLines
+    .filter((l) => !l.startsWith("#"))
+    .join(" ")
+    .replace(/[*_`#]/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const sentenceRegex = /[^.!?]+[.!?]+(?:\s|$)/g;
+  const sentenceMatches = paragraphText.match(sentenceRegex) || [];
+  const validSentences = sentenceMatches
+    .map((s) => s.trim())
+    .filter((s) => s.length >= 25 && s.length <= 220 && !s.toLowerCase().startsWith("http"));
+
+  if (validSentences.length >= 2) {
+    const selected = validSentences.slice(0, 3);
+    return `Summary of "${title}":\n` + selected.map((s) => `• ${s}`).join("\n");
+  }
+
+  // 3. Fallback: clean snippet formatted in 3 lines
+  const cleanSnippet = paragraphText.slice(0, 220).trim();
+  return `Summary of "${title}":\n• ${cleanSnippet}\nCan you explain these key concepts in depth?`;
+}
+
 export default function NoteViewPage() {
   const { noteId } = useParams<{ noteId: string }>();
   const navigate = useNavigate();
@@ -128,7 +183,7 @@ export default function NoteViewPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
                 onClick={() => {
-                  const prompt = `Based on these notes for "${note.title}", what are the 3 most likely exam questions?\n\n${note.content.slice(0, 800)}...`;
+                  const prompt = generateNoteSummary(note.title, note.content);
                   navigate(`/chat?topic=${encodeURIComponent(note.title)}&prompt=${encodeURIComponent(prompt)}`, {
                     state: { initialPrompt: prompt, topic: note.title },
                   });
@@ -141,7 +196,7 @@ export default function NoteViewPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-white truncate">Ask AI Chat</p>
-                    <p className="text-[10px] text-slate-300 font-medium">Exam questions</p>
+                    <p className="text-[10px] text-slate-300 font-medium">Notes summary</p>
                   </div>
                 </div>
               </button>

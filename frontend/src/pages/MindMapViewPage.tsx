@@ -1034,7 +1034,9 @@ export default function MindMapViewPage() {
                 <button
                   onClick={() => {
                     const nodeTopic = selectedNode?.name || map?.title || "";
-                    const prompt = `Explain the concept "${nodeTopic}" in depth: ${selectedNode?.description || ""}`;
+                    const childNames = selectedNode?.rawNode?.children?.map((c: RawTreeNode) => c.name).filter(Boolean).slice(0, 3) || [];
+                    const childLine = childNames.length > 0 ? `\n• Key Sub-branches: ${childNames.join(", ")}` : "";
+                    const prompt = `Summary of "${nodeTopic}" Mind Map:\n• Core Concept: ${selectedNode?.description || "Key study concept"}${childLine}\nCan you explain this in depth and test my understanding?`;
                     navigate(`/chat?topic=${encodeURIComponent(nodeTopic)}&prompt=${encodeURIComponent(prompt)}`, {
                       state: { initialPrompt: prompt, topic: nodeTopic },
                     });
@@ -1146,7 +1148,9 @@ export default function MindMapViewPage() {
                 <button
                   onClick={() => {
                     const nodeTopic = selectedNode?.name || map?.title || "";
-                    const prompt = `Explain the concept "${nodeTopic}" in depth: ${selectedNode?.description || ""}`;
+                    const childNames = selectedNode?.rawNode?.children?.map((c: RawTreeNode) => c.name).filter(Boolean).slice(0, 3) || [];
+                    const childLine = childNames.length > 0 ? `\n• Key Sub-branches: ${childNames.join(", ")}` : "";
+                    const prompt = `Summary of "${nodeTopic}" Mind Map:\n• Core Concept: ${selectedNode?.description || "Key study concept"}${childLine}\nCan you explain this in depth and test my understanding?`;
                     navigate(`/chat?topic=${encodeURIComponent(nodeTopic)}&prompt=${encodeURIComponent(prompt)}`, {
                       state: { initialPrompt: prompt, topic: nodeTopic },
                     });

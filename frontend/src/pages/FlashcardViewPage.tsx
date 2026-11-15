@@ -417,7 +417,13 @@ export default function FlashcardViewPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
               onClick={() => {
-                const prompt = `Based on my flashcards on "${set.title}", test my understanding and explain any tricky concepts in depth.`;
+                const sampleCards = (set.items || []).slice(0, 3);
+                let prompt = `Summary of "${set.title}" Flashcards:\n`;
+                if (sampleCards.length > 0) {
+                  prompt += sampleCards.map((c: FlashcardItem) => `• ${c.front_text}: ${c.back_text.slice(0, 120)}`).join("\n");
+                } else {
+                  prompt += `• Key flashcard concepts and definitions for ${set.title}`;
+                }
                 navigate(`/chat?topic=${encodeURIComponent(set.title)}&prompt=${encodeURIComponent(prompt)}`, {
                   state: { initialPrompt: prompt, topic: set.title },
                 });
@@ -430,7 +436,7 @@ export default function FlashcardViewPage() {
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs font-bold text-white truncate">Ask AI Chat</p>
-                  <p className="text-[10px] text-slate-300 font-medium truncate">Deep dive</p>
+                  <p className="text-[10px] text-slate-300 font-medium truncate">Cards summary</p>
                 </div>
               </div>
             </button>

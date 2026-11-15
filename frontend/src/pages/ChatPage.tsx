@@ -293,6 +293,8 @@ export default function ChatPage() {
         if (textareaRef.current) {
           textareaRef.current.focus();
           textareaRef.current.selectionStart = textareaRef.current.selectionEnd = textareaRef.current.value.length;
+          textareaRef.current.style.height = "auto";
+          textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
         }
       }, 100);
     } else if (topic && topic.trim()) {
@@ -301,6 +303,8 @@ export default function ChatPage() {
         if (textareaRef.current) {
           textareaRef.current.focus();
           textareaRef.current.selectionStart = textareaRef.current.selectionEnd = textareaRef.current.value.length;
+          textareaRef.current.style.height = "auto";
+          textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
         }
       }, 100);
     }
