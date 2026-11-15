@@ -162,8 +162,38 @@ export default function StudyPackPage() {
   const totalItemsCount = flashcards.length + quizzes.length + notes.length + mindmaps.length;
 
   return (
-    <div className="relative min-h-screen bg-void-950/80 text-void-100 flex">
-      {/* Modern Sidebar */}
+    <div className="relative min-h-screen bg-void-950/80 text-void-100 flex flex-col md:flex-row">
+      {/* Mobile Top Header Bar */}
+      <header className="md:hidden flex items-center justify-between px-5 py-4 border-b border-white/[0.08] bg-void-950/90 backdrop-blur-xl sticky top-0 z-30">
+        <Link to="/" className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-neon-violet to-neon-cyan flex items-center justify-center p-0.5 shadow-sm shadow-neon-violet/30">
+            <div className="w-full h-full bg-void-950 rounded-full flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 text-neon-cyan" />
+            </div>
+          </div>
+          <span className="font-display text-base tracking-tight text-white">
+            Scholar<span className="text-gradient-neon font-bold">AI</span>
+          </span>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/settings"
+            className="p-2 rounded-xl text-void-300 hover:text-white bg-white/[0.04] border border-white/[0.08]"
+            title="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </Link>
+          <button
+            onClick={handleLogout}
+            className="p-2 rounded-xl text-void-300 hover:text-white bg-white/[0.04] border border-white/[0.08]"
+            title="Log out"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* Modern Desktop Sidebar */}
       <aside className="hidden md:flex flex-col w-64 shrink-0 border-r border-white/[0.08] h-screen sticky top-0 px-5 py-6 bg-void-950/90 backdrop-blur-xl z-20">
         <Link to="/" className="flex items-center gap-2 group mb-10 px-2">
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neon-violet to-neon-cyan flex items-center justify-center p-0.5 shadow-sm shadow-neon-violet/30 group-hover:scale-105 transition-transform">
@@ -232,7 +262,7 @@ export default function StudyPackPage() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 px-6 md:px-10 py-8 max-w-6xl overflow-hidden">
+      <main className="flex-1 px-4 sm:px-6 md:px-10 py-6 md:py-8 max-w-6xl overflow-hidden pb-28 md:pb-8">
         <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/[0.04] border border-white/10 text-[11px] font-mono text-neon-cyan mb-2">
           <Brain className="w-3 h-3 text-neon-cyan animate-pulse" />
           <span>STUDY PACK LIBRARY</span>
@@ -621,6 +651,44 @@ export default function StudyPackPage() {
           </div>
         )}
       </main>
+
+      {/* Mobile Floating Bottom Navigation Dock */}
+      <nav className="md:hidden fixed bottom-3 inset-x-3 z-40 bg-void-900/90 backdrop-blur-2xl border border-white/10 rounded-2xl px-3 py-2 shadow-2xl flex items-center justify-around shadow-black/80">
+        <Link
+          to="/dashboard"
+          className="flex flex-col items-center gap-1 min-w-[56px] py-1 text-void-300 hover:text-white transition-all active:scale-95"
+        >
+          <LayoutDashboard className="w-5 h-5" />
+          <span className="text-[10px] font-medium font-mono">Home</span>
+        </Link>
+
+        <Link
+          to="/chat"
+          className="flex flex-col items-center gap-1 min-w-[56px] py-1 text-void-300 hover:text-white transition-all active:scale-95"
+        >
+          <MessageSquare className="w-5 h-5" />
+          <span className="text-[10px] font-medium font-mono">Chat</span>
+        </Link>
+
+        <Link
+          to="/study"
+          className="flex flex-col items-center gap-1 min-w-[56px] py-1 text-neon-pink transition-all active:scale-95"
+        >
+          <div className="relative">
+            <Brain className="w-5 h-5" />
+            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-neon-pink" />
+          </div>
+          <span className="text-[10px] font-medium font-mono">Study</span>
+        </Link>
+
+        <Link
+          to="/roadmap/new"
+          className="flex flex-col items-center gap-1 min-w-[56px] py-1 text-void-300 hover:text-white transition-all active:scale-95"
+        >
+          <Map className="w-5 h-5" />
+          <span className="text-[10px] font-medium font-mono">Roadmap</span>
+        </Link>
+      </nav>
     </div>
   );
 }
