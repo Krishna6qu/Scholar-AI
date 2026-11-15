@@ -1,7 +1,7 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String, Text, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -21,7 +21,9 @@ class Quiz(Base, UUIDPKMixin, SoftDeleteMixin):
     # time limit and hint-availability settings.
     time_limit_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     hints_enabled: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )
 
     questions: Mapped[list["QuizQuestion"]] = relationship(back_populates="quiz", cascade="all, delete-orphan")
     attempts: Mapped[list["QuizAttempt"]] = relationship(back_populates="quiz", cascade="all, delete-orphan")
@@ -61,7 +63,9 @@ class QuizAttempt(Base, UUIDPKMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
     score: Mapped[float | None] = mapped_column(Numeric(5, 2))
     percentage: Mapped[float | None] = mapped_column(Numeric(5, 2))
-    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()")
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     quiz: Mapped["Quiz"] = relationship(back_populates="attempts")
@@ -90,7 +94,9 @@ class Flashcard(Base, UUIDPKMixin, SoftDeleteMixin):
     title: Mapped[str] = mapped_column(String(255))
     source_chat_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("chats.id"), nullable=True)
     source_file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("uploaded_files.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )
     reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     times_reviewed: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
 
@@ -116,7 +122,9 @@ class ShortNote(Base, UUIDPKMixin, SoftDeleteMixin):
     content: Mapped[str] = mapped_column(Text)
     source_chat_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("chats.id"), nullable=True)
     source_file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("uploaded_files.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )
 
 
 class MindMap(Base, UUIDPKMixin, SoftDeleteMixin):
@@ -127,5 +135,7 @@ class MindMap(Base, UUIDPKMixin, SoftDeleteMixin):
     json_structure: Mapped[dict] = mapped_column(JSONB)
     source_chat_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("chats.id"), nullable=True)
     source_file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("uploaded_files.id"), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )
     viewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

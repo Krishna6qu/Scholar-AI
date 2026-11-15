@@ -1,8 +1,8 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,4 +25,6 @@ class Roadmap(Base, UUIDPKMixin, SoftDeleteMixin):
     json_structure: Mapped[dict[str, Any]] = mapped_column(JSONB)
     # Keys are "phase_index:step_index" → bool. Tracks per-step completion toggled by the user.
     step_progress: Mapped[dict[str, bool]] = mapped_column(JSONB, default=dict, server_default="{}")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default="now()")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), server_default=func.now()
+    )

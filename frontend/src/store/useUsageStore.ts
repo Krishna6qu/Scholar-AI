@@ -66,12 +66,20 @@ export const useUsageStore = create<UsageState>((set, get) => ({
 
   consumeEnergy: (feature) => {
     set((state) => {
-      if (!state.usage) return state;
-      const currentFeature = state.usage[feature];
-      if (!currentFeature) return state;
+      const baseUsage: UsageData = state.usage ?? {
+        quiz: { used: 0, limit: 6 },
+        flashcards: { used: 0, limit: 6 },
+        mindmap: { used: 0, limit: 6 },
+        roadmap: { used: 0, limit: 6 },
+        note: { used: 0, limit: 6 },
+        resets_in_hours: 5,
+        any_limit_reached: false,
+        limit_reached_features: [],
+      };
+      const currentFeature = baseUsage[feature];
       const newUsed = Math.min(currentFeature.limit, currentFeature.used + 1);
       const updatedFeature = { ...currentFeature, used: newUsed };
-      const newUsage = { ...state.usage, [feature]: updatedFeature };
+      const newUsage = { ...baseUsage, [feature]: updatedFeature };
       const reached = (["quiz", "flashcards", "mindmap", "roadmap", "note"] as const).filter(
         (k) => (newUsage[k]?.used ?? 0) >= (newUsage[k]?.limit ?? 6)
       );
