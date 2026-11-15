@@ -6,12 +6,20 @@ interface StreakEnergyCoreProps {
   totalQuizzes?: number;
   totalChats?: number;
   loading?: boolean;
+  dailyEnergyUsed?: number;
+  dailyEnergyLimit?: number;
+  resetsInHours?: number;
 }
 
 export const StreakEnergyCore: React.FC<StreakEnergyCoreProps> = ({
   dayStreak = 0,
   loading = false,
+  dailyEnergyUsed = 0,
+  dailyEnergyLimit = 30,
+  resetsInHours = 5,
 }) => {
+  const remainingEnergy = Math.max(0, dailyEnergyLimit - dailyEnergyUsed);
+  const energyPct = dailyEnergyLimit > 0 ? Math.min(100, Math.round((remainingEnergy / dailyEnergyLimit) * 100)) : 0;
   // Weekly goal: 7 days
   const weeklyTarget = 7;
   const progressRatio = Math.min(dayStreak / weeklyTarget, 1);
@@ -203,6 +211,58 @@ export const StreakEnergyCore: React.FC<StreakEnergyCoreProps> = ({
                 </div>
               );
             })}
+          </div>
+        </div>
+      </div>
+
+      {/* Daily Energy & Usage Quotas Connection Bar */}
+      <div className="mt-5 pt-4 border-t border-white/[0.06] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 border ${
+            remainingEnergy === 0
+              ? "bg-neon-pink/15 border-neon-pink/40 text-neon-pink"
+              : remainingEnergy < 10
+              ? "bg-amber-500/15 border-amber-500/40 text-amber-400"
+              : "bg-neon-cyan/15 border-neon-cyan/40 text-neon-cyan"
+          }`}>
+            <Zap className="w-3.5 h-3.5" />
+          </div>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-white">Daily Energy Capacity</span>
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded-full border ${
+                remainingEnergy === 0
+                  ? "bg-neon-pink/15 border-neon-pink/30 text-neon-pink font-bold"
+                  : "bg-void-800 border-void-600 text-void-300"
+              }`}>
+                {remainingEnergy === 0 ? `Depleted • ${resetsInHours}h Refill` : `${remainingEnergy}/${dailyEnergyLimit} Energy Units Left`}
+              </span>
+            </div>
+            <p className="text-[10px] text-void-400 truncate mt-0.5">
+              Powers AI Quizzes, Notes, Flashcards, Mind Maps &amp; Roadmaps
+            </p>
+          </div>
+        </div>
+
+        {/* Energy Bar */}
+        <div className="w-full sm:w-44 flex flex-col gap-1 shrink-0">
+          <div className="flex justify-between items-center text-[10px] font-mono">
+            <span className="text-void-400">Energy Level</span>
+            <span className={remainingEnergy === 0 ? "text-neon-pink font-bold" : "text-neon-cyan font-bold"}>
+              {energyPct}%
+            </span>
+          </div>
+          <div className="w-full h-2 rounded-full bg-void-800 overflow-hidden border border-white/[0.05]">
+            <div
+              className={`h-full transition-all duration-700 ease-out ${
+                remainingEnergy === 0
+                  ? "bg-neon-pink"
+                  : remainingEnergy < 10
+                  ? "bg-gradient-to-r from-amber-500 to-orange-400"
+                  : "bg-gradient-to-r from-neon-violet via-neon-cyan to-neon-lime"
+              }`}
+              style={{ width: `${energyPct}%` }}
+            />
           </div>
         </div>
       </div>

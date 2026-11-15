@@ -61,7 +61,7 @@ class MindMapService:
         if today_count >= DAILY_LIMITS["mindmap"]:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
-                f"You've reached today's limit of {DAILY_LIMITS['mindmap']} mind maps. Features resume after 5 hours.",
+                "Daily limit is reached. Please wait 5 hours to use it again.",
             )
 
         file_context = None

@@ -185,7 +185,7 @@ class QuizService:
         if today_count >= DAILY_LIMITS["quiz"]:
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
-                f"You've reached today's limit of {DAILY_LIMITS['quiz']} quizzes. Features resume after 5 hours.",
+                "Daily limit is reached. Please wait 5 hours to use it again.",
             )
 
         breakdown = data.mix_breakdown or {data.question_type: data.total_questions}
@@ -273,15 +273,29 @@ class QuizService:
             parsed_opts: list[tuple[str, bool]] = []
             if q_type in ("mcq", "true_false"):
                 opts = q.get("options") or q.get("choices") or []
-                for opt in opts:
-                    if isinstance(opt, dict):
-                        text = str(opt.get("text") or opt.get("option") or opt.get("value") or "").strip()
-                        is_corr = bool(opt.get("is_correct") or opt.get("isCorrect") or opt.get("correct", False))
-                    else:
-                        text = str(opt).strip()
-                        is_corr = False
-                    if text:
-                        parsed_opts.append((text, is_corr))
+                if isinstance(opts, dict):
+                    # e.g. {"A": "Choice A", "B": "Choice B"} or {"A": {"text": "...", "is_correct": True}}
+                    for k, v in opts.items():
+                        if isinstance(v, dict):
+                            otext = str(v.get("text") or v.get("option") or v.get("value") or "").strip()
+                            is_corr = bool(v.get("is_correct") or v.get("isCorrect") or v.get("correct", False))
+                        else:
+                            otext = str(v).strip()
+                            ca = str(q.get("correct_answer") or q.get("answer") or "").strip().lower()
+                            is_corr = bool(ca and (ca == str(k).lower() or ca == otext.lower()))
+                        if otext:
+                            parsed_opts.append((otext, is_corr))
+                elif isinstance(opts, list):
+                    for opt in opts:
+                        if isinstance(opt, dict):
+                            otext = str(opt.get("text") or opt.get("option") or opt.get("value") or "").strip()
+                            is_corr = bool(opt.get("is_correct") or opt.get("isCorrect") or opt.get("correct", False))
+                        else:
+                            otext = str(opt).strip()
+                            ca = str(q.get("correct_answer") or q.get("answer") or "").strip().lower()
+                            is_corr = bool(ca and (ca == otext.lower() or (len(ca) == 1 and otext.lower().startswith(ca + ")"))))
+                        if otext:
+                            parsed_opts.append((otext, is_corr))
 
                 if q_type == "true_false" and not parsed_opts:
                     expected = str(q.get("expected_answer") or q.get("answer") or "true").strip().lower()
@@ -301,6 +315,13 @@ class QuizService:
                             break
                     if not matched:
                         parsed_opts[0] = (parsed_opts[0][0], True)
+
+                # Guarantee at least 2 options for multiple-choice questions
+                if q_type == "mcq" and len(parsed_opts) < 2:
+                    if len(parsed_opts) == 1:
+                        parsed_opts.append(("None of the above", False))
+                    else:
+                        parsed_opts = [("Option A", True), ("Option B", False)]
             else:  # short_answer
                 expected = str(
                     q.get("expected_answer") or q.get("answer") or q.get("correct_answer") or "Answer"

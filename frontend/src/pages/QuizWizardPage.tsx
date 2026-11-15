@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Sparkles, Lightbulb } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, Lightbulb, AlertTriangle } from "lucide-react";
 import { api } from "@/lib/api";
+import { DailyLimitModal } from "@/components/DailyLimitModal";
 
 type QType = "mcq" | "true_false" | "short_answer";
 type FullType = QType | "mix";
@@ -29,6 +30,8 @@ export default function QuizWizardPage() {
   const [step, setStep] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
 
   const [topic, setTopic] = useState(initialTopic);
 
@@ -37,6 +40,15 @@ export default function QuizWizardPage() {
       setTopic(initialTopic);
     }
   }, [initialTopic]);
+
+  useEffect(() => {
+    api.get("/auth/me/usage")
+      .then(({ data }) => {
+        if (data?.quiz) setUsage(data.quiz);
+      })
+      .catch(() => {});
+  }, []);
+
   const [questionType, setQuestionType] = useState<FullType | null>(null);
   const [totalQuestions, setTotalQuestions] = useState(10);
   const [mixTypes, setMixTypes] = useState<QType[]>([]);
@@ -82,6 +94,11 @@ export default function QuizWizardPage() {
   const isLastStep = step === steps.length - 1;
 
   async function handleGenerate() {
+    if (usage && usage.used >= usage.limit) {
+      setShowLimitModal(true);
+      setError("Daily limit is reached. Please wait 5 hours to use it again.");
+      return;
+    }
     setGenerating(true);
     setError(null);
     try {
@@ -100,9 +117,15 @@ export default function QuizWizardPage() {
       navigate(`/study/quiz/${data.id}`);
     } catch (err: any) {
       if (err.response?.status === 429) {
-        setError(err.response?.data?.detail || "Daily limit reached for quizzes. Features resume after 5 hours.");
+        setShowLimitModal(true);
+        setError(err.response?.data?.detail || "Daily limit is reached. Please wait 5 hours to use it again.");
       } else {
-        setError(err.response?.data?.detail ?? "Couldn't generate the quiz. Please try again.");
+        const detail = err.response?.data?.detail;
+        if (err.response?.status === 502 || err.message?.includes("502")) {
+          setError("The server was warming up or reconnecting. Please tap 'Generate Quiz' again.");
+        } else {
+          setError(typeof detail === "string" ? detail : "Couldn't generate the quiz. Please try again.");
+        }
       }
     } finally {
       setGenerating(false);
@@ -141,6 +164,19 @@ export default function QuizWizardPage() {
         </div>
 
         <div className="glass-modern rounded-3xl p-8 border border-white/[0.08] shadow-2xl relative">
+          {usage && usage.used >= usage.limit && (
+            <div
+              onClick={() => setShowLimitModal(true)}
+              className="flex items-center justify-between mb-4 px-3.5 py-2.5 rounded-2xl bg-neon-pink/10 border border-neon-pink/40 text-xs text-neon-pink cursor-pointer hover:bg-neon-pink/15 transition-all shadow-sm shadow-neon-pink/10"
+            >
+              <span className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>Daily limit is reached ({usage.used}/{usage.limit}). Wait 5 hours to use it again.</span>
+              </span>
+              <span className="underline font-mono text-[10px] font-bold">Details</span>
+            </div>
+          )}
+
           <p className="font-mono text-xs tracking-[0.3em] uppercase text-neon-cyan mb-2">
             Step {step + 1} of {steps.length}
           </p>
@@ -364,6 +400,15 @@ export default function QuizWizardPage() {
           </div>
         </div>
       </div>
+
+      <DailyLimitModal
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        featureName="Quizzes"
+        used={usage?.used ?? 6}
+        limit={usage?.limit ?? 6}
+        resetsInHours={5}
+      />
     </div>
   );
 }

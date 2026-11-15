@@ -25,6 +25,7 @@ import { useAuthStore } from "@/store/authStore";
 import { api } from "@/lib/api";
 import { TiltCard } from "@/components/TiltCard";
 import { StreakEnergyCore } from "@/components/StreakEnergyCore";
+import { DailyLimitModal } from "@/components/DailyLimitModal";
 
 const QUICK_ACTIONS = [
   {
@@ -152,6 +153,7 @@ export default function DashboardPage() {
   const [usage, setUsage] = useState<Usage | null>(null);
   const [usageError, setUsageError] = useState<string | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
+  const [limitModalInfo, setLimitModalInfo] = useState<{ open: boolean; feature?: string; used?: number; limit?: number } | null>(null);
 
   const [recentChats, setRecentChats] = useState<ChatSummary[]>([]);
   const [recentQuizResults, setRecentQuizResults] = useState<QuizHistoryItem[]>([]);
@@ -371,12 +373,34 @@ export default function DashboardPage() {
           <div className="relative z-10 grid grid-cols-1 lg:grid-cols-3 gap-5 mb-8">
             {/* Bento Col 1 & 2: Interactive Streak Energy Core */}
             <div className="lg:col-span-2">
-              <StreakEnergyCore
-                dayStreak={learningStats?.day_streak ?? 0}
-                totalQuizzes={learningStats?.total_quizzes ?? 0}
-                totalChats={learningStats?.total_chats ?? 0}
-                loading={learningStatsLoading}
-              />
+              {(() => {
+                const totalEnergyUsed = usage
+                  ? (usage.quiz?.used || 0) +
+                    (usage.flashcards?.used || 0) +
+                    (usage.mindmap?.used || 0) +
+                    (usage.roadmap?.used || 0) +
+                    (usage.note?.used || 0)
+                  : 0;
+                const totalEnergyLimit = usage
+                  ? (usage.quiz?.limit || 6) +
+                    (usage.flashcards?.limit || 6) +
+                    (usage.mindmap?.limit || 6) +
+                    (usage.roadmap?.limit || 6) +
+                    (usage.note?.limit || 6)
+                  : 30;
+
+                return (
+                  <StreakEnergyCore
+                    dayStreak={learningStats?.day_streak ?? 0}
+                    totalQuizzes={learningStats?.total_quizzes ?? 0}
+                    totalChats={learningStats?.total_chats ?? 0}
+                    loading={learningStatsLoading}
+                    dailyEnergyUsed={totalEnergyUsed}
+                    dailyEnergyLimit={totalEnergyLimit}
+                    resetsInHours={usage?.resets_in_hours ?? 5}
+                  />
+                );
+              })()}
             </div>
 
             {/* Bento Col 3: Lifetime Intelligence Tile */}
@@ -477,7 +501,11 @@ export default function DashboardPage() {
               if (!hasReachedLimit) return null;
 
               return (
-                <div className="mb-4 glass-modern rounded-2xl p-4 border border-neon-pink/50 bg-neon-pink/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-neon-pink/10">
+                <div
+                  onClick={() => setLimitModalInfo({ open: true, feature: reachedLabels.join(", "), used: 6, limit: 6 })}
+                  className="mb-4 glass-modern rounded-2xl p-4 border border-neon-pink/50 bg-neon-pink/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg shadow-neon-pink/10 cursor-pointer hover:bg-neon-pink/15 transition-all group"
+                  title="Click to view limit status"
+                >
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-xl bg-neon-pink/20 border border-neon-pink/30 flex items-center justify-center shrink-0">
                       <AlertTriangle className="w-4 h-4 text-neon-pink" />
@@ -487,11 +515,11 @@ export default function DashboardPage() {
                         Daily capacity reached for {reachedLabels.join(", ")}
                       </p>
                       <p className="text-[11px] text-void-300 mt-0.5">
-                        Counters automatically replenish after {resumeHours} hours at cycle reset.
+                        Counters automatically replenish after {resumeHours} hours at cycle reset. Click to review.
                       </p>
                     </div>
                   </div>
-                  <span className="text-[11px] font-mono font-semibold text-neon-pink px-3 py-1 rounded-full border border-neon-pink/30 bg-void-950/80 self-start sm:self-auto shrink-0">
+                  <span className="text-[11px] font-mono font-semibold text-neon-pink px-3 py-1 rounded-full border border-neon-pink/30 bg-void-950/80 self-start sm:self-auto shrink-0 group-hover:bg-neon-pink/20 transition-colors">
                     Replenishes in {resumeHours}h
                   </span>
                 </div>
@@ -508,7 +536,12 @@ export default function DashboardPage() {
                   <TiltCard
                     key={m.key}
                     glowColor={atLimit ? "pink" : "cyan"}
-                    className={`p-4 transition-all ${atLimit ? "border-neon-pink/60 bg-neon-pink/5" : ""}`}
+                    onClick={() => {
+                      if (atLimit) {
+                        setLimitModalInfo({ open: true, feature: m.label, used: u?.used, limit: u?.limit });
+                      }
+                    }}
+                    className={`p-4 transition-all ${atLimit ? "border-neon-pink/60 bg-neon-pink/5 cursor-pointer hover:border-neon-pink" : ""}`}
                   >
                     <div className="flex items-center justify-between mb-2">
                       <m.icon className={`w-4 h-4 ${m.accent}`} />
@@ -763,6 +796,15 @@ export default function DashboardPage() {
           <span className="text-[10px] font-medium font-mono">Roadmap</span>
         </Link>
       </nav>
+
+      <DailyLimitModal
+        isOpen={!!limitModalInfo?.open}
+        onClose={() => setLimitModalInfo(null)}
+        featureName={limitModalInfo?.feature}
+        used={limitModalInfo?.used}
+        limit={limitModalInfo?.limit}
+        resetsInHours={usage?.resets_in_hours ?? 5}
+      />
     </div>
   );
 }

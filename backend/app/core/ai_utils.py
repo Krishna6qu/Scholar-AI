@@ -45,6 +45,8 @@ async def acompletion_with_retry(
     """
     if "max_tokens" not in kwargs:
         kwargs["max_tokens"] = 2200
+    if "timeout" not in kwargs and "request_timeout" not in kwargs:
+        kwargs["timeout"] = 45
 
     # Build prioritized candidate model chain
     candidate_models = [model]

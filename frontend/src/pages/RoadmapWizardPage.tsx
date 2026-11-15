@@ -1,16 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Map, Sparkles } from "lucide-react";
+import { Map, Sparkles, AlertTriangle } from "lucide-react";
 import { api } from "@/lib/api";
+import { DailyLimitModal } from "@/components/DailyLimitModal";
 
 export default function RoadmapWizardPage() {
   const navigate = useNavigate();
   const [topic, setTopic] = useState("");
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
+
+  useEffect(() => {
+    api.get("/auth/me/usage")
+      .then(({ data }) => {
+        if (data?.roadmap) setUsage(data.roadmap);
+      })
+      .catch(() => {});
+  }, []);
 
   async function handleGenerate() {
     if (!topic.trim()) return;
+    if (usage && usage.used >= usage.limit) {
+      setShowLimitModal(true);
+      setError("Daily limit is reached. Please wait 5 hours to use it again.");
+      return;
+    }
     setGenerating(true);
     setError(null);
     try {
@@ -18,9 +34,15 @@ export default function RoadmapWizardPage() {
       navigate(`/roadmap/${data.id}`);
     } catch (err: any) {
       if (err.response?.status === 429) {
-        setError(err.response?.data?.detail || "Daily limit reached for roadmaps. Features resume after 5 hours.");
+        setShowLimitModal(true);
+        setError(err.response?.data?.detail || "Daily limit is reached. Please wait 5 hours to use it again.");
       } else {
-        setError(err.response?.data?.detail ?? "Could not generate the roadmap. Try again.");
+        const detail = err.response?.data?.detail;
+        if (err.response?.status === 502 || err.message?.includes("502")) {
+          setError("The server was warming up or reconnecting. Please tap 'Generate Roadmap' again.");
+        } else {
+          setError(typeof detail === "string" ? detail : "Could not generate the roadmap. Try again.");
+        }
       }
     } finally {
       setGenerating(false);
@@ -34,6 +56,19 @@ export default function RoadmapWizardPage() {
           ← Back to Dashboard
         </Link>
         <div className="glass rounded-2xl p-8">
+          {usage && usage.used >= usage.limit && (
+            <div
+              onClick={() => setShowLimitModal(true)}
+              className="flex items-center justify-between mb-4 px-3.5 py-2.5 rounded-2xl bg-neon-pink/10 border border-neon-pink/40 text-xs text-neon-pink cursor-pointer hover:bg-neon-pink/15 transition-all shadow-sm shadow-neon-pink/10"
+            >
+              <span className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>Daily limit is reached ({usage.used}/{usage.limit}). Wait 5 hours to use it again.</span>
+              </span>
+              <span className="underline font-mono text-[10px] font-bold">Details</span>
+            </div>
+          )}
+
           <Map className="w-6 h-6 text-neon-lime mb-4" />
           <h1 className="text-2xl text-white mb-2">Generate a career roadmap</h1>
           <p className="text-void-300 text-sm mb-6">
@@ -79,6 +114,15 @@ export default function RoadmapWizardPage() {
           </p>
         </div>
       </div>
+
+      <DailyLimitModal
+        isOpen={showLimitModal}
+        onClose={() => setShowLimitModal(false)}
+        featureName="Career Roadmaps"
+        used={usage?.used ?? 6}
+        limit={usage?.limit ?? 6}
+        resetsInHours={5}
+      />
     </div>
   );
 }

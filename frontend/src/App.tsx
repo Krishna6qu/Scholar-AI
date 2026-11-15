@@ -4,6 +4,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import ThreeDBackground from "@/components/ThreeDBackground";
 import FocusTimer from "@/components/FocusTimer";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import { api } from "@/lib/api";
 
 const HomePage = lazy(() => import("@/pages/HomePage"));
 const VerifyOtpPage = lazy(() => import("@/pages/VerifyOtpPage"));
@@ -43,6 +44,8 @@ export default function App() {
     if (localStorage.getItem("scholarai_reduced_motion") === "true") {
       document.documentElement.setAttribute("data-reduced-motion", "true");
     }
+    // Pre-warm backend container so free-tier spin-up completes before users submit requests
+    api.get("/health").catch(() => {});
   }, []);
   return (
     <ErrorBoundary>

@@ -22,9 +22,23 @@ let refreshInFlight: Promise<string | null> | null = null;
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
-    const original = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+    const original = error.config as (InternalAxiosRequestConfig & { _retry?: boolean; _retry502?: boolean }) | undefined;
+
+    if (!original) {
+      return Promise.reject(error);
+    }
 
     const isAuthFlowEndpoint = /\/auth\/(login|register|refresh)$/.test(original.url ?? "");
+
+    // If request fails with 502 Bad Gateway or 503 Service Unavailable (e.g. Render container cold start)
+    // and hasn't been retried yet, wait 2.5s and retry once transparently.
+    const status = error.response?.status;
+    if ((status === 502 || status === 503) && !original._retry502 && !isAuthFlowEndpoint) {
+      original._retry502 = true;
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+      return api(original);
+    }
+
     if (error.response?.status !== 401 || original._retry || isAuthFlowEndpoint) {
       return Promise.reject(error);
     }
