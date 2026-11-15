@@ -189,11 +189,11 @@ export const LinkIngestModal: React.FC<LinkIngestModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 selection:bg-neon-violet selection:text-white animate-fade-in"
+      className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 selection:bg-neon-violet selection:text-white"
       onClick={onClose}
     >
       <div
-        className="glass-modern rounded-3xl w-full max-w-xl border border-white/[0.1] shadow-2xl overflow-hidden relative"
+        className="glass-modern rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto border border-white/[0.1] shadow-2xl relative transition-all duration-300"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Ambient background glows */}
