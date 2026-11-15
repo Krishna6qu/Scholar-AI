@@ -50,6 +50,51 @@ class QuizRepository:
         await self.db.refresh(quiz)
         return quiz
 
+    async def create_full_quiz(
+        self,
+        owner_id: uuid.UUID,
+        title: str,
+        difficulty: str,
+        total_questions: int,
+        time_limit_minutes: int | None,
+        hints_enabled: bool | None,
+        questions_data: list[dict],
+    ) -> Quiz:
+        quiz = Quiz(
+            owner_id=owner_id,
+            title=title,
+            difficulty=difficulty,
+            total_questions=total_questions,
+            time_limit_minutes=time_limit_minutes,
+            hints_enabled=hints_enabled,
+        )
+        self.db.add(quiz)
+        await self.db.flush()
+
+        for order, q_item in enumerate(questions_data):
+            question = QuizQuestion(
+                quiz_id=quiz.id,
+                question_text=q_item["question_text"],
+                explanation=q_item.get("explanation"),
+                question_order=order,
+                hint=q_item.get("hint"),
+                question_type=q_item["question_type"],
+            )
+            self.db.add(question)
+            await self.db.flush()
+
+            for opt_text, is_corr in q_item.get("options", []):
+                option = QuizOption(
+                    question_id=question.id,
+                    option_text=opt_text,
+                    is_correct=is_corr,
+                )
+                self.db.add(option)
+
+        await self.db.commit()
+        await self.db.refresh(quiz)
+        return quiz
+
     async def add_question(
         self,
         quiz_id: uuid.UUID,

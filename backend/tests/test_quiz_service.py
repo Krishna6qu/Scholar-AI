@@ -16,7 +16,8 @@ def test_quiz_build_prompt():
     prompt = _build_prompt(req, {"mcq": 3})
     assert "Machine Learning Basics" in prompt
     assert "3 multiple-choice question(s)" in prompt
-    assert "Include a short, non-giveaway" in prompt
+    assert "short, non-giveaway" in prompt
+    assert "EXACTLY 3 questions" in prompt
 
 
 def test_quiz_extract_json_markdown_fences():

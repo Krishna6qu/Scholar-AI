@@ -1,4 +1,5 @@
 import uuid
+from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,66 +21,121 @@ DIFFICULTY_GUIDANCE = {
 }
 
 
+def _extract_question_list(parsed: Any) -> list[dict]:
+    """Tolerantly extract question items from any JSON structure returned by the model."""
+    if isinstance(parsed, list):
+        return [q for q in parsed if isinstance(q, dict)]
+    if not isinstance(parsed, dict):
+        return []
+
+    # Check common keys
+    for key in ("questions", "quiz", "items", "mcqs", "cards", "data", "results"):
+        val = parsed.get(key)
+        if isinstance(val, list):
+            return [q for q in val if isinstance(q, dict)]
+        if isinstance(val, dict):
+            nested = val.get("questions") or val.get("items")
+            if isinstance(nested, list):
+                return [q for q in nested if isinstance(q, dict)]
+
+    # Check numbered question dicts: {"1": {...}, "2": {...}}
+    numbered = []
+    for _, v in parsed.items():
+        if isinstance(v, dict) and any(f in v for f in ("question_text", "question", "options", "prompt")):
+            numbered.append(v)
+    if numbered:
+        return numbered
+
+    # Check type groups: {"mcq": [...], "true_false": [...]}
+    type_grouped = []
+    for k in ("mcq", "true_false", "short_answer", "multiple_choice"):
+        val = parsed.get(k)
+        if isinstance(val, list):
+            for item in val:
+                if isinstance(item, dict):
+                    if "type" not in item:
+                        item["type"] = k
+                    type_grouped.append(item)
+    if type_grouped:
+        return type_grouped
+
+    return []
+
+
 def _build_prompt(data: QuizGenerateRequest, breakdown: dict) -> str:
+    total_q = data.total_questions
     type_lines = []
     for qtype, count in breakdown.items():
         label = {"mcq": "multiple-choice", "true_false": "true/false", "short_answer": "short-answer"}[qtype]
         type_lines.append(f"- {count} {label} question(s)")
 
     hint_instruction = (
-        'Include a short, non-giveaway "hint" field for each question that nudges the student '
-        "without revealing the answer."
+        'For each question, provide a short, non-giveaway "hint" string that nudges the student without revealing the answer.'
         if data.hints_enabled
-        else 'Set "hint" to null for every question — hints are disabled for this quiz.'
+        else 'Set "hint" to null for all questions.'
     )
 
-    return f"""You are a quiz-generation engine for a study app. Generate a quiz on the topic: "{data.topic}".
+    sample_items = []
+    if "mcq" in breakdown or data.question_type == "mcq":
+        sample_items.append("""    {
+      "type": "mcq",
+      "question_text": "Clear question prompt?",
+      "hint": "Brief hint or null",
+      "explanation": "Concise 1-2 sentence explanation of the correct answer.",
+      "options": [
+        {"text": "Correct choice", "is_correct": true},
+        {"text": "Plausible distractor 1", "is_correct": false},
+        {"text": "Plausible distractor 2", "is_correct": false},
+        {"text": "Plausible distractor 3", "is_correct": false}
+      ]
+    }""")
+    if "true_false" in breakdown or data.question_type == "true_false":
+        sample_items.append("""    {
+      "type": "true_false",
+      "question_text": "Clear statement to evaluate as true or false?",
+      "hint": "Brief hint or null",
+      "explanation": "Concise explanation of true or false.",
+      "options": [
+        {"text": "True", "is_correct": true},
+        {"text": "False", "is_correct": false}
+      ]
+    }""")
+    if "short_answer" in breakdown or data.question_type == "short_answer":
+        sample_items.append("""    {
+      "type": "short_answer",
+      "question_text": "Clear short-answer question prompt?",
+      "hint": "Brief hint or null",
+      "explanation": "Concise explanation of concept.",
+      "expected_answer": "Concise Answer Phrase"
+    }""")
 
-Difficulty level: {data.difficulty} — {DIFFICULTY_GUIDANCE.get(data.difficulty, "Standard difficulty")}
+    sample_block = ",\n".join(sample_items)
 
-Generate exactly this breakdown of question types:
+    return f"""You are a master academic assessment engine for ScholarAI.
+Generate a comprehensive, rigorous quiz on the topic: "{data.topic}".
+
+DIFFICULTY LEVEL: {data.difficulty} — {DIFFICULTY_GUIDANCE.get(data.difficulty, "Standard difficulty")}
+
+MANDATORY QUESTION COUNT:
+You MUST generate EXACTLY {total_q} questions.
+The "questions" JSON array MUST contain EXACTLY {total_q} complete question objects.
+Do NOT stop early. Do NOT generate only 1, 2, or 3 questions. Generate all {total_q} questions.
+
+QUESTION TYPE BREAKDOWN:
 {chr(10).join(type_lines)}
 
-Rules per question type:
-1. "mcq": Exactly 4 options in an "options" list. Exactly ONE option must have "is_correct": true, and the other 3 must have "is_correct": false.
-2. "true_false": Exactly 2 options ("True" and "False") in an "options" list. Exactly ONE option must have "is_correct": true, and the other "is_correct": false.
-3. "short_answer": Do NOT provide an "options" list. Instead, include an "expected_answer" string representing the concise correct answer.
+RULES:
+1. "mcq": Exactly 4 options in "options". Exactly one option with "is_correct": true, and three with "is_correct": false.
+2. "true_false": Exactly 2 options ("True" and "False") in "options". Exactly one option with "is_correct": true, and one with "is_correct": false.
+3. "short_answer": No "options" array. Instead include a concise "expected_answer" string.
+4. {hint_instruction}
+5. Every question MUST include a concise 1-2 sentence "explanation" detailing why the correct answer is right.
 
-{hint_instruction}
-Every question must include an "explanation" string detailing why the correct answer is right.
-
-Respond with ONLY valid JSON (no markdown fences, no explanatory text outside the JSON), matching this JSON structure:
+Respond ONLY with valid JSON (no markdown fences, no preamble, no commentary):
 {{
   "questions": [
-    {{
-      "type": "mcq",
-      "question_text": "Sample multiple choice question text?",
-      "hint": "Helpful hint here or null",
-      "explanation": "Why this answer is correct.",
-      "options": [
-        {{"text": "Correct option", "is_correct": true}},
-        {{"text": "Incorrect option 1", "is_correct": false}},
-        {{"text": "Incorrect option 2", "is_correct": false}},
-        {{"text": "Incorrect option 3", "is_correct": false}}
-      ]
-    }},
-    {{
-      "type": "true_false",
-      "question_text": "Sample statement to evaluate as true or false?",
-      "hint": "Helpful hint here or null",
-      "explanation": "Explanation of true or false.",
-      "options": [
-        {{"text": "True", "is_correct": true}},
-        {{"text": "False", "is_correct": false}}
-      ]
-    }},
-    {{
-      "type": "short_answer",
-      "question_text": "Sample short answer question prompt?",
-      "hint": "Helpful hint here or null",
-      "explanation": "Explanation of concept.",
-      "expected_answer": "Concise Answer"
-    }}
+{sample_block}
+    // Continue generating until there are EXACTLY {total_q} complete question objects in this array.
   ]
 }}"""
 
@@ -100,43 +156,50 @@ class QuizService:
         breakdown = data.mix_breakdown or {data.question_type: data.total_questions}
         prompt = _build_prompt(data, breakdown)
         model = settings.DEFAULT_AI_MODEL
+        target_count = data.total_questions
 
+        questions: list[dict] = []
         try:
             response = await acompletion_with_retry(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=resolve_api_key(model),
-                max_tokens=3000,
+                max_tokens=5000,
             )
             parsed = extract_json(response.choices[0].message.content)
+            questions = _extract_question_list(parsed)
+
+            # If the model returned fewer questions than requested, request completion of the remainder
+            if len(questions) < target_count:
+                needed = target_count - len(questions)
+                followup_prompt = (
+                    f"{prompt}\n\nIMPORTANT: The previous output only contained {len(questions)} questions. "
+                    f"Please generate the remaining {needed} questions on '{data.topic}' so that the total is {target_count}. "
+                    f"Return ONLY the valid JSON with a 'questions' array containing {needed} new questions."
+                )
+                followup_resp = await acompletion_with_retry(
+                    model=model,
+                    messages=[{"role": "user", "content": followup_prompt}],
+                    api_key=resolve_api_key(model),
+                    max_tokens=4000,
+                )
+                followup_parsed = extract_json(followup_resp.choices[0].message.content)
+                more_questions = _extract_question_list(followup_parsed)
+                questions.extend(more_questions)
+
         except Exception as e:
             status_code, message = ai_error_response(e, "generate the quiz")
             raise HTTPException(status_code, message)
 
-        questions = []
-        if isinstance(parsed, list):
-            questions = parsed
-        elif isinstance(parsed, dict):
-            if isinstance(parsed.get("questions"), list):
-                questions = parsed["questions"]
-            elif isinstance(parsed.get("quiz"), dict) and isinstance(parsed["quiz"].get("questions"), list):
-                questions = parsed["quiz"]["questions"]
-            elif isinstance(parsed.get("items"), list):
-                questions = parsed["items"]
-
         if not questions:
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, "The AI did not return any questions. Please try again.")
 
-        quiz = await self.repo.create_quiz(
-            owner_id=user_id,
-            title=f"{data.topic.strip().title()} Quiz",
-            difficulty=data.difficulty,
-            total_questions=len(questions),
-            time_limit_minutes=data.time_limit_minutes,
-            hints_enabled=data.hints_enabled,
-        )
+        # Cap to exact target count
+        final_questions = questions[:target_count]
 
-        for order, q in enumerate(questions):
+        # Prepare normalized questions and options data
+        prepared_questions: list[dict] = []
+        for order, q in enumerate(final_questions):
             raw_type = str(q.get("type", "mcq")).lower().strip()
             if "true" in raw_type or "false" in raw_type:
                 q_type = "true_false"
@@ -153,18 +216,9 @@ class QuizService:
             if hint in ("None", "null", ""):
                 hint = None
 
-            question = await self.repo.add_question(
-                quiz.id,
-                q_text,
-                explanation,
-                order,
-                hint,
-                q_type,
-            )
-
+            parsed_opts: list[tuple[str, bool]] = []
             if q_type in ("mcq", "true_false"):
                 opts = q.get("options") or q.get("choices") or []
-                parsed_opts: list[tuple[str, bool]] = []
                 for opt in opts:
                     if isinstance(opt, dict):
                         text = str(opt.get("text") or opt.get("option") or opt.get("value") or "").strip()
@@ -175,13 +229,12 @@ class QuizService:
                     if text:
                         parsed_opts.append((text, is_corr))
 
-                # Handle true/false default if empty options returned
                 if q_type == "true_false" and not parsed_opts:
                     expected = str(q.get("expected_answer") or q.get("answer") or "true").strip().lower()
                     is_true = "t" in expected
                     parsed_opts = [("True", is_true), ("False", not is_true)]
 
-                # Guarantee at least one option is marked correct
+                # Guarantee at least one correct option
                 if not any(is_corr for _, is_corr in parsed_opts) and parsed_opts:
                     ca = str(
                         q.get("correct_answer") or q.get("answer") or q.get("expected_answer") or ""
@@ -194,16 +247,30 @@ class QuizService:
                             break
                     if not matched:
                         parsed_opts[0] = (parsed_opts[0][0], True)
-
-                for text, is_corr in parsed_opts:
-                    await self.repo.add_option(question.id, text, is_corr)
-            else:  # short_answer — store expected answer as the single "correct option"
+            else:  # short_answer
                 expected = str(
                     q.get("expected_answer") or q.get("answer") or q.get("correct_answer") or "Answer"
                 ).strip()
-                await self.repo.add_option(question.id, expected or "Answer", True)
+                parsed_opts = [(expected or "Answer", True)]
 
-        return quiz
+            prepared_questions.append({
+                "question_text": q_text,
+                "explanation": explanation,
+                "hint": hint,
+                "question_type": q_type,
+                "options": parsed_opts,
+            })
+
+        # Save entire quiz with all questions and options in a single atomic transaction
+        return await self.repo.create_full_quiz(
+            owner_id=user_id,
+            title=f"{data.topic.strip().title()} Quiz",
+            difficulty=data.difficulty,
+            total_questions=len(prepared_questions),
+            time_limit_minutes=data.time_limit_minutes,
+            hints_enabled=data.hints_enabled,
+            questions_data=prepared_questions,
+        )
 
     async def list_quizzes(self, user_id: uuid.UUID, limit: int = 50):
         return await self.repo.list_quizzes(user_id, limit)
