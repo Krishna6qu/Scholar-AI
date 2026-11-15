@@ -370,10 +370,30 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-void-950 flex text-void-100 selection:bg-neon-violet/30 selection:text-white relative overflow-x-hidden">
+    <div className="min-h-screen bg-void-950 flex flex-col md:flex-row text-void-100 selection:bg-neon-violet/30 selection:text-white relative overflow-x-hidden">
       {/* Ambient background glow orbs */}
       <div className="absolute -top-40 right-10 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute top-1/2 left-20 w-80 h-80 bg-neon-violet/5 rounded-full blur-3xl pointer-events-none" />
+
+      {/* Mobile Top Header */}
+      <header className="md:hidden flex items-center justify-between px-5 py-4 border-b border-white/[0.08] bg-void-950/90 backdrop-blur-xl sticky top-0 z-30">
+        <Link to="/" className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-neon-violet to-neon-cyan flex items-center justify-center p-0.5 shadow-sm shadow-neon-violet/30">
+            <div className="w-full h-full bg-void-950 rounded-full flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 text-neon-cyan" />
+            </div>
+          </div>
+          <span className="font-display text-base tracking-tight text-white">
+            Scholar<span className="text-gradient-neon font-bold">AI</span>
+          </span>
+        </Link>
+        <Link
+          to="/dashboard"
+          className="text-xs text-void-300 hover:text-white px-3 py-1.5 rounded-xl border border-white/[0.08] bg-white/[0.04]"
+        >
+          Dashboard →
+        </Link>
+      </header>
 
       {/* Modern Sidebar */}
       <aside className="hidden md:flex flex-col w-64 shrink-0 border-r border-void-800/80 bg-void-950/90 backdrop-blur-xl h-screen sticky top-0 px-5 py-6 z-20">
@@ -466,7 +486,7 @@ export default function SettingsPage() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 px-5 sm:px-8 md:px-12 py-8 max-w-4xl min-w-0 z-10">
+      <main className="flex-1 px-4 sm:px-8 md:px-12 py-6 md:py-8 max-w-4xl min-w-0 z-10 pb-28 md:pb-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
@@ -1445,6 +1465,41 @@ export default function SettingsPage() {
           </div>
         )}
       </main>
+
+      {/* Mobile Floating Bottom Navigation Dock */}
+      <nav className="md:hidden fixed bottom-3 inset-x-3 z-40 bg-void-900/90 backdrop-blur-2xl border border-white/10 rounded-2xl px-3 py-2 shadow-2xl flex items-center justify-around shadow-black/80">
+        <Link
+          to="/dashboard"
+          className="flex flex-col items-center gap-1 min-w-[56px] py-1 text-void-300 hover:text-white transition-all active:scale-95"
+        >
+          <LayoutDashboard className="w-5 h-5" />
+          <span className="text-[10px] font-medium font-mono">Home</span>
+        </Link>
+
+        <Link
+          to="/chat"
+          className="flex flex-col items-center gap-1 min-w-[56px] py-1 text-void-300 hover:text-white transition-all active:scale-95"
+        >
+          <MessageSquare className="w-5 h-5" />
+          <span className="text-[10px] font-medium font-mono">Chat</span>
+        </Link>
+
+        <Link
+          to="/study"
+          className="flex flex-col items-center gap-1 min-w-[56px] py-1 text-void-300 hover:text-white transition-all active:scale-95"
+        >
+          <Brain className="w-5 h-5" />
+          <span className="text-[10px] font-medium font-mono">Study</span>
+        </Link>
+
+        <Link
+          to="/roadmap/new"
+          className="flex flex-col items-center gap-1 min-w-[56px] py-1 text-void-300 hover:text-white transition-all active:scale-95"
+        >
+          <Map className="w-5 h-5" />
+          <span className="text-[10px] font-medium font-mono">Roadmap</span>
+        </Link>
+      </nav>
     </div>
   );
 }
