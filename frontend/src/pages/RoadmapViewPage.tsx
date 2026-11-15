@@ -1,6 +1,15 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import { Download, CheckCircle2, Circle } from "lucide-react";
+import {
+  Download,
+  CheckCircle2,
+  Circle,
+  MapPin,
+  Clock,
+  Sparkles,
+  BookOpen,
+  ArrowLeft,
+} from "lucide-react";
 import { toCanvas } from "html-to-image";
 import jsPDF from "jspdf";
 import { api } from "@/lib/api";
@@ -34,6 +43,7 @@ export default function RoadmapViewPage() {
   const [error, setError] = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [recentlyToggled, setRecentlyToggled] = useState<string | null>(null);
   const captureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -52,6 +62,9 @@ export default function RoadmapViewPage() {
     if (!roadmapId) return;
     const key = `${phaseIndex}:${stepIndex}`;
     setToggling(key);
+    setRecentlyToggled(key);
+    setTimeout(() => setRecentlyToggled(null), 800);
+
     try {
       const { data } = await api.post(`/roadmaps/${roadmapId}/steps/toggle`, {
         phase_index: phaseIndex,
@@ -75,9 +88,6 @@ export default function RoadmapViewPage() {
         pixelRatio: 2,
       });
 
-      // One custom-sized page matching the full roadmap's dimensions —
-      // avoids complex multi-page slicing while still producing a real,
-      // scrollable PDF rather than a single flat image.
       const pdf = new jsPDF({
         orientation: canvas.width >= canvas.height ? "l" : "p",
         unit: "px",
@@ -90,17 +100,33 @@ export default function RoadmapViewPage() {
     }
   }
 
+  // Calculated stats
+  const totalStats = useMemo(() => {
+    if (!roadmap?.json_structure?.phases) return { totalSteps: 0, completedSteps: 0 };
+    let total = 0;
+    let completed = 0;
+    roadmap.json_structure.phases.forEach((p) => {
+      p.steps.forEach((s) => {
+        total++;
+        if (s.is_completed) completed++;
+      });
+    });
+    return { totalSteps: total, completedSteps: completed };
+  }, [roadmap]);
+
   if (error) {
     return (
-      <div className="min-h-screen bg-transparent flex items-center justify-center px-4">
-        <div className="glass rounded-2xl p-8 max-w-md text-center">
-          <p className="text-neon-pink font-semibold mb-2">Roadmap Not Found</p>
+      <div className="min-h-screen bg-void-950 flex items-center justify-center px-4">
+        <div className="glass-modern rounded-2xl p-8 max-w-md text-center border border-void-700 shadow-2xl">
+          <p className="text-neon-pink font-semibold mb-2 flex items-center justify-center gap-2">
+            <Sparkles className="w-4 h-4 text-neon-pink" /> Roadmap Unavailable
+          </p>
           <p className="text-sm text-void-300 mb-6">{error}</p>
           <Link
             to="/dashboard"
-            className="px-4 py-2 rounded-lg bg-void-800 border border-void-600 text-white hover:bg-void-700 text-sm inline-block"
+            className="px-5 py-2.5 rounded-xl bg-void-800 border border-void-600 text-white hover:bg-void-700 text-sm inline-flex items-center gap-2 transition-colors"
           >
-            ← Return to Dashboard
+            <ArrowLeft className="w-4 h-4" /> Return to Dashboard
           </Link>
         </div>
       </div>
@@ -109,112 +135,224 @@ export default function RoadmapViewPage() {
 
   if (!roadmap) {
     return (
-      <div className="min-h-screen bg-transparent flex items-center justify-center text-void-300">
-        <div className="flex items-center gap-3">
-          <div className="w-5 h-5 rounded-full border-2 border-neon-cyan border-t-transparent animate-spin" />
-          <span>Loading roadmap…</span>
+      <div className="min-h-screen bg-void-950 flex items-center justify-center text-void-300">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-7 h-7 rounded-full border-2 border-neon-cyan border-t-transparent animate-spin" />
+          <span className="text-sm font-medium">Assembling Curriculum Pathway…</span>
         </div>
       </div>
     );
   }
 
   const phases = roadmap.json_structure.phases;
+  const progressPercent = Math.round(roadmap.progress_percentage || 0);
 
   return (
-    <div className="min-h-screen bg-transparent px-4 py-10">
-      <div className="max-w-3xl mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <Link to="/dashboard" className="text-sm text-void-300 hover:text-white transition-colors">
-            ← Back to Dashboard
-          </Link>
-          <button
-            onClick={handleDownload}
-            disabled={downloading}
-            className="flex items-center gap-2 text-sm px-4 py-2 rounded-full bg-gradient-to-r from-neon-violet to-neon-cyan text-void-950 font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+    <div className="min-h-screen bg-void-950 text-void-100 px-3 sm:px-6 py-6 md:py-10">
+      <div className="max-w-4xl mx-auto">
+        {/* Top Header Bar */}
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+          <Link
+            to="/dashboard"
+            className="text-xs sm:text-sm text-void-300 hover:text-white transition-colors flex items-center gap-1.5 px-3 py-2 rounded-xl border border-void-700/70 bg-void-900/60"
           >
-            <Download className="w-4 h-4" />
-            {downloading ? "Preparing PDF…" : "Download as PDF"}
-          </button>
+            <ArrowLeft className="w-4 h-4" />
+            <span>Dashboard</span>
+          </Link>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              onClick={handleDownload}
+              disabled={downloading}
+              className="flex items-center gap-2 text-xs sm:text-sm px-4 py-2.5 rounded-xl bg-gradient-to-r from-neon-violet to-neon-cyan text-void-950 font-bold hover:opacity-95 transition-all shadow-glow-cyan/40 disabled:opacity-50 min-h-[40px]"
+            >
+              <Download className="w-4 h-4" />
+              <span>{downloading ? "Generating PDF…" : "Download PDF"}</span>
+            </button>
+          </div>
         </div>
 
-        <div ref={captureRef} className="bg-void-950 p-6 rounded-2xl">
-          <p className="font-mono text-xs tracking-[0.3em] uppercase text-neon-lime mb-2">
-            Career Roadmap
-          </p>
-          <h1 className="text-3xl text-white mb-1">{roadmap.title}</h1>
-          <p className="text-void-300 text-sm mb-4">Path to becoming: {roadmap.topic}</p>
+        {/* Capturable Roadmap Canvas */}
+        <div ref={captureRef} className="glass-modern p-5 sm:p-8 rounded-3xl border border-void-700/80 shadow-2xl relative overflow-hidden">
+          {/* Subtle Ambient Background Gradient Orbs */}
+          <div className="absolute -top-24 -right-24 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-24 -left-24 w-96 h-96 bg-neon-violet/5 rounded-full blur-3xl pointer-events-none" />
 
-          <div className="mb-10">
-            <div className="flex items-center justify-between text-xs text-void-300 mb-2">
-              <span>Overall progress</span>
-              <span className="text-neon-lime">{Math.round(roadmap.progress_percentage)}%</span>
+          {/* Roadmap Header Meta */}
+          <div className="relative z-10 mb-8 pb-6 border-b border-void-700/60">
+            <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
+              <span className="font-mono text-[11px] tracking-[0.25em] uppercase text-neon-lime flex items-center gap-1.5 font-bold">
+                <MapPin className="w-3.5 h-3.5" /> Career & Learning Roadmap
+              </span>
+              <span className="text-xs font-mono text-void-300 px-2.5 py-1 rounded-lg bg-void-900/80 border border-void-700">
+                {totalStats.completedSteps} of {totalStats.totalSteps} Milestones Done
+              </span>
             </div>
-            <div className="w-full h-2 rounded-full bg-void-700 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-neon-violet to-neon-cyan transition-all"
-                style={{ width: `${roadmap.progress_percentage}%` }}
-              />
+
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white tracking-tight mb-2">
+              {roadmap.title}
+            </h1>
+            <p className="text-void-300 text-xs sm:text-sm flex items-center gap-2">
+              <span>Domain Specialty:</span>
+              <span className="text-neon-cyan font-medium">{roadmap.topic}</span>
+            </p>
+
+            {/* Overall Progress Tracker Bar */}
+            <div className="mt-5 bg-void-900/90 rounded-2xl p-4 border border-void-700/60">
+              <div className="flex items-center justify-between text-xs text-void-300 mb-2">
+                <span className="font-medium text-void-200">Overall Curriculum Mastery</span>
+                <span className="font-mono font-bold text-neon-lime text-sm">{progressPercent}%</span>
+              </div>
+              <div className="w-full h-3 rounded-full bg-void-800/90 overflow-hidden p-0.5 border border-void-700/60">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-neon-violet via-neon-cyan to-neon-lime transition-all duration-700 ease-out shadow-glow-cyan"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
             </div>
           </div>
 
-          <div className="relative pl-8">
-            <div className="absolute left-[11px] top-2 bottom-2 w-px bg-void-700" />
-            {phases.map((phase, i) => (
-              <div key={i} className="relative mb-10 last:mb-0">
-                <div className="absolute -left-8 top-0 w-6 h-6 rounded-full bg-gradient-to-r from-neon-violet to-neon-cyan flex items-center justify-center text-void-950 text-xs font-bold">
-                  {phase.order}
-                </div>
-                <div className="glass rounded-2xl p-5">
-                  <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
-                    <h2 className="text-lg font-semibold text-white">{phase.title}</h2>
-                    <span className="text-xs text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30 rounded-full px-2.5 py-1">
-                      {phase.duration_estimate}
-                    </span>
-                  </div>
-                  <p className="text-void-300 text-sm mb-4">{phase.description}</p>
+          {/* Vertical Neon Timeline Core */}
+          <div className="relative pl-6 sm:pl-10">
+            {/* Ambient Spine Line */}
+            <div className="absolute left-[13px] sm:left-[19px] top-4 bottom-4 w-1 rounded-full bg-void-800/80" />
 
-                  <div className="space-y-3">
-                    {phase.steps.map((step, j) => (
-                      <div key={j} className="bg-void-900 border border-void-700 rounded-xl p-3.5">
-                        <div className="flex items-start gap-2">
-                          <button
-                            type="button"
-                            onClick={() => toggleStep(i, j, !step.is_completed)}
-                            disabled={toggling === `${i}:${j}`}
-                            className="mt-0.5 shrink-0 disabled:opacity-50"
-                            aria-label={step.is_completed ? "Mark step incomplete" : "Mark step complete"}
-                          >
-                            {step.is_completed ? (
-                              <CheckCircle2 className="w-4 h-4 text-neon-lime" />
-                            ) : (
-                              <Circle className="w-4 h-4 text-void-500 hover:text-neon-violet transition-colors" />
-                            )}
-                          </button>
-                          <div className={step.is_completed ? "opacity-70" : ""}>
-                            <p className={`text-white text-sm font-medium ${step.is_completed ? "line-through" : ""}`}>
-                              {step.title}
-                            </p>
-                            <p className="text-void-300 text-xs mt-1 leading-relaxed">{step.description}</p>
-                            {step.resources?.length > 0 && (
-                              <div className="flex flex-wrap gap-1.5 mt-2">
-                                {step.resources.map((r, k) => (
-                                  <span
-                                    key={k}
-                                    className="text-[11px] text-void-200 bg-void-800 border border-void-600 rounded-full px-2 py-0.5"
-                                  >
-                                    {r}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
+            {/* Glowing Active Track Line */}
+            <div
+              className="absolute left-[13px] sm:left-[19px] top-4 w-1 rounded-full bg-gradient-to-b from-neon-violet via-neon-cyan to-neon-lime transition-all duration-700"
+              style={{
+                height: `${progressPercent}%`,
+                boxShadow: "0 0 12px rgba(34, 211, 238, 0.5)",
+              }}
+            />
+
+            {/* Phases List */}
+            {phases.map((phase, i) => {
+              const phaseCompletedSteps = phase.steps.filter((s) => s.is_completed).length;
+              const isPhaseFinished = phaseCompletedSteps === phase.steps.length && phase.steps.length > 0;
+
+              return (
+                <div key={i} className="relative mb-10 last:mb-2">
+                  {/* Phase Order Numerical Orb */}
+                  <div
+                    className={`absolute -left-6 sm:-left-10 top-0 w-7 h-7 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-xs sm:text-sm font-bold transition-all duration-300 ring-4 ring-void-950 ${
+                      isPhaseFinished
+                        ? "bg-neon-lime text-void-950 shadow-glow-lime"
+                        : "bg-gradient-to-br from-neon-violet to-neon-cyan text-void-950 shadow-neon-violet"
+                    }`}
+                  >
+                    {isPhaseFinished ? <CheckCircle2 className="w-4 h-4 text-void-950" /> : phase.order}
+                  </div>
+
+                  {/* Phase Card */}
+                  <div className="glass-modern rounded-2xl p-4 sm:p-6 border border-void-700/70 hover:border-void-600 transition-all">
+                    {/* Phase Header */}
+                    <div className="flex items-start sm:items-center justify-between mb-2 flex-col sm:flex-row gap-2">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-md bg-void-800 text-void-300 border border-void-700">
+                            Phase {phase.order}
+                          </span>
+                          <h2 className="text-base sm:text-lg font-bold text-white">
+                            {phase.title}
+                          </h2>
                         </div>
                       </div>
-                    ))}
+
+                      <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1 text-[11px] text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30 rounded-full px-2.5 py-1">
+                          <Clock className="w-3 h-3" />
+                          <span>{phase.duration_estimate}</span>
+                        </span>
+                        <span className="text-[11px] font-mono text-void-400">
+                          {phaseCompletedSteps}/{phase.steps.length}
+                        </span>
+                      </div>
+                    </div>
+
+                    <p className="text-void-300 text-xs sm:text-sm mb-5 leading-relaxed">
+                      {phase.description}
+                    </p>
+
+                    {/* Steps Container */}
+                    <div className="space-y-3">
+                      {phase.steps.map((step, j) => {
+                        const stepKey = `${i}:${j}`;
+                        const isTogglingThis = toggling === stepKey;
+                        const isJustToggled = recentlyToggled === stepKey;
+
+                        return (
+                          <div
+                            key={j}
+                            className={`rounded-xl p-3.5 sm:p-4 border transition-all duration-300 ${
+                              step.is_completed
+                                ? "bg-neon-lime/[0.04] border-neon-lime/30 shadow-[0_0_15px_-5px_rgba(163,230,53,0.15)]"
+                                : "bg-void-900/80 border-void-700/80 hover:border-void-600 hover:bg-void-900"
+                            }`}
+                          >
+                            <div className="flex items-start gap-3">
+                              {/* Touch-Friendly 44px Checkbox Hit Area */}
+                              <button
+                                type="button"
+                                onClick={() => toggleStep(i, j, !step.is_completed)}
+                                disabled={isTogglingThis}
+                                className="min-w-[36px] min-h-[36px] -ml-1 -mt-1 flex items-center justify-center rounded-xl hover:bg-void-800/80 active:scale-90 transition-transform shrink-0 disabled:opacity-50"
+                                aria-label={step.is_completed ? "Mark step incomplete" : "Mark step complete"}
+                              >
+                                {isTogglingThis ? (
+                                  <div className="w-5 h-5 rounded-full border-2 border-neon-cyan border-t-transparent animate-spin" />
+                                ) : step.is_completed ? (
+                                  <CheckCircle2
+                                    className={`w-5 h-5 text-neon-lime transition-transform duration-300 ${
+                                      isJustToggled ? "scale-125" : "scale-100"
+                                    }`}
+                                  />
+                                ) : (
+                                  <Circle className="w-5 h-5 text-void-500 hover:text-neon-cyan transition-colors" />
+                                )}
+                              </button>
+
+                              <div className="flex-1 min-w-0">
+                                <p
+                                  className={`text-xs sm:text-sm font-semibold transition-all ${
+                                    step.is_completed
+                                      ? "text-void-300 line-through decoration-neon-lime/60"
+                                      : "text-white"
+                                  }`}
+                                >
+                                  {step.title}
+                                </p>
+
+                                <p className="text-void-300 text-xs mt-1.5 leading-relaxed">
+                                  {step.description}
+                                </p>
+
+                                {/* Resources Badges */}
+                                {step.resources?.length > 0 && (
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2 border-t border-void-800/80">
+                                    <span className="text-[10px] uppercase font-mono text-void-400 mr-1 flex items-center gap-1">
+                                      <BookOpen className="w-3 h-3 text-void-400" /> Key Topics:
+                                    </span>
+                                    {step.resources.map((r, k) => (
+                                      <span
+                                        key={k}
+                                        className="text-[11px] text-void-200 bg-void-800/90 border border-void-700 rounded-lg px-2 py-0.5 hover:border-neon-cyan/50 hover:text-neon-cyan transition-colors"
+                                      >
+                                        {r}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

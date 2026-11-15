@@ -19,6 +19,7 @@ import {
   GitFork,
   Radio,
   CheckCircle2,
+  X,
 } from "lucide-react";
 import { toCanvas } from "html-to-image";
 import { api } from "@/lib/api";
@@ -86,6 +87,18 @@ export default function MindMapViewPage() {
   const [pan, setPan] = useState({ x: 80, y: 150 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+
+  // Touch gesture state for mobile pinch-to-zoom and drag
+  const touchStartRef = useRef<{
+    x: number;
+    y: number;
+    panX: number;
+    panY: number;
+    initialDistance?: number;
+    initialZoom?: number;
+    touchCenterX?: number;
+    touchCenterY?: number;
+  }>({ x: 0, y: 0, panX: 0, panY: 0 });
 
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasCaptureRef = useRef<HTMLDivElement>(null);
@@ -166,10 +179,10 @@ export default function MindMapViewPage() {
     }
 
     function getNodeDims(depth: number) {
-      if (depth === 0) return { width: 290, height: 86 };
-      if (depth === 1) return { width: 250, height: 78 };
-      if (depth === 2) return { width: 230, height: 72 };
-      return { width: 210, height: 66 };
+      if (depth === 0) return { width: 290, height: 88 };
+      if (depth === 1) return { width: 250, height: 80 };
+      if (depth === 2) return { width: 230, height: 74 };
+      return { width: 210, height: 68 };
     }
 
     if (layoutMode === "flow") {
@@ -346,6 +359,7 @@ export default function MindMapViewPage() {
     }
 
     setSelectedId(nodeId);
+    setShowInspector(true);
 
     const rect = containerRef.current.getBoundingClientRect();
     const targetX = rect.width / 2 - pos.x * zoom;
@@ -385,7 +399,7 @@ export default function MindMapViewPage() {
     });
   }, [bounds, positions]);
 
-  // Mouse pan handlers
+  // Mouse pan handlers (Desktop)
   function handleMouseDown(e: React.MouseEvent) {
     if (e.button !== 0) return;
     setIsDragging(true);
@@ -411,7 +425,7 @@ export default function MindMapViewPage() {
     setIsDragging(false);
   }
 
-  // Wheel zoom centered on cursor
+  // Wheel zoom centered on cursor (Desktop)
   function handleWheel(e: React.WheelEvent) {
     e.preventDefault();
     const rect = containerRef.current?.getBoundingClientRect();
@@ -430,8 +444,79 @@ export default function MindMapViewPage() {
     });
   }
 
+  // Mobile Touch Gestures (Single-finger drag pan & Dual-finger pinch-to-zoom)
+  function handleTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      touchStartRef.current = {
+        x: touch.clientX,
+        y: touch.clientY,
+        panX: pan.x,
+        panY: pan.y,
+      };
+      setIsDragging(true);
+    } else if (e.touches.length === 2) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const centerX = (t1.clientX + t2.clientX) / 2;
+      const centerY = (t1.clientY + t2.clientY) / 2;
+
+      touchStartRef.current = {
+        x: centerX,
+        y: centerY,
+        panX: pan.x,
+        panY: pan.y,
+        initialDistance: dist,
+        initialZoom: zoom,
+        touchCenterX: centerX,
+        touchCenterY: centerY,
+      };
+      setIsDragging(false);
+    }
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (e.touches.length === 1 && !touchStartRef.current.initialDistance) {
+      const touch = e.touches[0];
+      const dx = touch.clientX - touchStartRef.current.x;
+      const dy = touch.clientY - touchStartRef.current.y;
+      setPan({
+        x: touchStartRef.current.panX + dx,
+        y: touchStartRef.current.panY + dy,
+      });
+    } else if (e.touches.length === 2 && touchStartRef.current.initialDistance && touchStartRef.current.initialZoom) {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const currentDist = Math.hypot(t2.clientX - t1.clientX, t2.clientY - t1.clientY);
+      const scaleFactor = currentDist / touchStartRef.current.initialDistance;
+      const newZoom = Math.min(Math.max(touchStartRef.current.initialZoom * scaleFactor, 0.3), 2.5);
+
+      const rect = containerRef.current?.getBoundingClientRect();
+      if (rect && touchStartRef.current.touchCenterX !== undefined && touchStartRef.current.touchCenterY !== undefined) {
+        const cx = touchStartRef.current.touchCenterX;
+        const cy = touchStartRef.current.touchCenterY;
+        const originCanvasX = (cx - rect.left - touchStartRef.current.panX) / touchStartRef.current.initialZoom;
+        const originCanvasY = (cy - rect.top - touchStartRef.current.panY) / touchStartRef.current.initialZoom;
+
+        setZoom(newZoom);
+        setPan({
+          x: cx - rect.left - originCanvasX * newZoom,
+          y: cy - rect.top - originCanvasY * newZoom,
+        });
+      } else {
+        setZoom(newZoom);
+      }
+    }
+  }
+
+  function handleTouchEnd() {
+    setIsDragging(false);
+    touchStartRef.current = { x: 0, y: 0, panX: 0, panY: 0 };
+  }
+
   // Toggle node collapse
-  function toggleCollapse(nodeId: string, e: React.MouseEvent) {
+  function toggleCollapse(nodeId: string, e: React.MouseEvent | React.TouchEvent) {
     e.stopPropagation();
     setCollapsedIds((prev) => {
       const next = new Set(prev);
@@ -483,8 +568,8 @@ export default function MindMapViewPage() {
     return (
       <div className="min-h-screen bg-void-950 flex items-center justify-center text-void-300">
         <div className="flex flex-col items-center gap-3">
-          <Sparkles className="w-6 h-6 text-neon-pink animate-spin" style={{ animationDuration: "3s" }} />
-          <span>Generating interactive neural mind map…</span>
+          <Sparkles className="w-7 h-7 text-neon-pink animate-spin" style={{ animationDuration: "3s" }} />
+          <span className="text-sm font-medium">Synthesizing Neural Mind Map…</span>
         </div>
       </div>
     );
@@ -492,70 +577,70 @@ export default function MindMapViewPage() {
 
   return (
     <div className={`relative min-h-screen bg-void-950 text-void-100 ${isFullscreen ? "fixed inset-0 z-50 overflow-hidden" : ""}`}>
-      {/* Top Header Bar */}
-      <header className="relative z-20 backdrop-blur-xl bg-void-950/80 border-b border-void-700/60 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      {/* Top Header Bar (Dual Desktop & Mobile Responsive) */}
+      <header className="relative z-20 backdrop-blur-xl bg-void-950/85 border-b border-void-700/60 px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           <Link
             to="/study"
-            className="text-xs text-void-300 hover:text-white transition-colors flex items-center gap-1 border border-void-700 rounded-lg px-2.5 py-1.5 bg-void-900/60"
+            className="text-xs text-void-300 hover:text-white transition-colors flex items-center gap-1 border border-void-700 rounded-xl px-2.5 py-1.5 bg-void-900/70 shrink-0 min-h-[36px]"
           >
-            ← Study Pack
+            ← Study
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <Share2 className="w-5 h-5 text-neon-pink shrink-0" />
-            <h1 className="text-lg font-semibold text-white truncate max-w-sm md:max-w-md">
+            <h1 className="text-base md:text-lg font-semibold text-white truncate max-w-[180px] sm:max-w-xs md:max-w-md">
               {map.title}
             </h1>
             {map.viewed_at && (
-              <span title="Viewed" className="shrink-0">
-                <CheckCircle2 className="w-4 h-4 text-neon-pink" />
+              <span title="Completed/Viewed" className="shrink-0">
+                <CheckCircle2 className="w-4 h-4 text-neon-lime" />
               </span>
             )}
           </div>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           {/* Layout Mode Switcher */}
-          <div className="flex items-center rounded-lg border border-void-700 bg-void-900/80 p-0.5">
+          <div className="flex items-center rounded-xl border border-void-700 bg-void-900/80 p-0.5">
             <button
               onClick={() => { setLayoutMode("flow"); handleResetView(); }}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[34px] ${
                 layoutMode === "flow" ? "bg-neon-cyan/20 text-neon-cyan border border-neon-cyan/30" : "text-void-300 hover:text-white"
               }`}
               title="Neural Flow Layout (Curved Left-to-Right Tree)"
             >
               <GitFork className="w-3.5 h-3.5" />
-              <span>Neural Flow</span>
+              <span className="hidden sm:inline">Flow</span>
             </button>
             <button
               onClick={() => { setLayoutMode("orbital"); handleResetView(); }}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors ${
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors min-h-[34px] ${
                 layoutMode === "orbital" ? "bg-neon-pink/20 text-neon-pink border border-neon-pink/30" : "text-void-300 hover:text-white"
               }`}
               title="Orbital Galaxy Layout (360° Radial Solar System)"
             >
               <Radio className="w-3.5 h-3.5" />
-              <span>Orbital Galaxy</span>
+              <span className="hidden sm:inline">Orbital</span>
             </button>
           </div>
 
           {/* Search Input with dropdown */}
           <div className="relative">
-            <div className="flex items-center rounded-lg border border-void-700 bg-void-900/80 px-2.5 py-1 text-xs text-white">
-              <Search className="w-3.5 h-3.5 text-void-400 mr-2 shrink-0" />
+            <div className="flex items-center rounded-xl border border-void-700 bg-void-900/80 px-2.5 py-1.5 text-xs text-white min-h-[36px]">
+              <Search className="w-3.5 h-3.5 text-void-400 mr-1.5 shrink-0" />
               <input
                 type="text"
-                placeholder="Search concepts…"
+                placeholder="Search…"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="bg-transparent text-xs text-white placeholder-void-400 focus:outline-none w-28 md:w-36"
+                className="bg-transparent text-xs text-white placeholder-void-400 focus:outline-none w-20 sm:w-28 md:w-36"
               />
             </div>
 
             {searchResults.length > 0 && (
-              <div className="absolute right-0 top-full mt-1.5 w-64 glass rounded-xl shadow-2xl border border-void-600/80 p-1.5 z-30 max-h-56 overflow-y-auto">
-                <p className="text-[10px] uppercase tracking-wider text-void-400 px-2 py-1 font-mono">
+              <div className="absolute right-0 top-full mt-2 w-72 glass-modern rounded-2xl shadow-2xl border border-void-600/80 p-2 z-30 max-h-60 overflow-y-auto">
+                <p className="text-[10px] uppercase tracking-wider text-void-400 px-2.5 py-1 font-mono">
                   {searchResults.length} {searchResults.length === 1 ? "match" : "matches"}
                 </p>
                 {searchResults.map((r) => (
@@ -565,10 +650,10 @@ export default function MindMapViewPage() {
                       focusOnNode(r.id);
                       setSearchQuery("");
                     }}
-                    className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-void-700/60 text-void-100 flex items-center justify-between"
+                    className="w-full text-left px-2.5 py-2 rounded-xl text-xs hover:bg-void-700/70 text-void-100 flex items-center justify-between transition-colors"
                   >
                     <span className="truncate font-medium">{r.name}</span>
-                    <span className="text-[10px] text-neon-cyan shrink-0 ml-1">L{r.depth}</span>
+                    <span className="text-[10px] text-neon-cyan shrink-0 ml-2 font-mono">L{r.depth}</span>
                   </button>
                 ))}
               </div>
@@ -579,17 +664,17 @@ export default function MindMapViewPage() {
           <button
             onClick={handleExportImage}
             disabled={exporting}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-void-700 bg-void-900/80 text-void-200 hover:text-white text-xs transition-colors disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-void-700 bg-void-900/80 text-void-200 hover:text-white text-xs transition-colors disabled:opacity-50 min-h-[36px]"
             title="Download mind map as PNG image"
           >
             <Download className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">{exporting ? "Exporting…" : "Export"}</span>
+            <span className="hidden sm:inline">{exporting ? "Saving…" : "Export"}</span>
           </button>
 
           {/* Fullscreen Toggle */}
           <button
             onClick={() => setIsFullscreen((f) => !f)}
-            className="p-1.5 rounded-lg border border-void-700 bg-void-900/80 text-void-300 hover:text-white transition-colors"
+            className="p-2 rounded-xl border border-void-700 bg-void-900/80 text-void-300 hover:text-white transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
             title={isFullscreen ? "Exit Fullscreen" : "Fullscreen Mode"}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -599,8 +684,8 @@ export default function MindMapViewPage() {
 
       {/* Breadcrumbs Navigation Bar */}
       {selectedNode && (
-        <div className="relative z-10 bg-void-900/50 border-b border-void-800/80 px-6 py-2 flex items-center gap-1.5 text-xs text-void-300 overflow-x-auto">
-          <span className="text-void-400 font-mono text-[10px] uppercase mr-1">Pathway:</span>
+        <div className="relative z-10 bg-void-900/60 border-b border-void-800/80 px-4 md:px-6 py-2 flex items-center gap-1.5 text-xs text-void-300 overflow-x-auto no-scrollbar">
+          <span className="text-void-400 font-mono text-[10px] uppercase mr-1 shrink-0">Path:</span>
           {selectedNode.ancestorIds.map((aId) => {
             const ancestor = flatMap.get(aId);
             if (!ancestor) return null;
@@ -616,7 +701,7 @@ export default function MindMapViewPage() {
               </div>
             );
           })}
-          <span className="text-neon-pink font-medium truncate">{selectedNode.name}</span>
+          <span className="text-neon-pink font-semibold truncate shrink-0">{selectedNode.name}</span>
         </div>
       )}
 
@@ -627,15 +712,19 @@ export default function MindMapViewPage() {
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onWheel={handleWheel}
-        className={`relative w-full ${isFullscreen ? "h-[calc(100vh-95px)]" : "h-[calc(100vh-140px)]"} overflow-hidden cursor-grab active:cursor-grabbing select-none`}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className={`relative w-full ${isFullscreen ? "h-[calc(100vh-95px)]" : "h-[calc(100vh-140px)]"} overflow-hidden cursor-grab active:cursor-grabbing select-none touch-none`}
       >
-        {/* SVG Canvas with Pan & Zoom Transform */}
+        {/* SVG Canvas with GPU Hardware-Accelerated Pan & Zoom Transform */}
         <div
           ref={canvasCaptureRef}
           style={{
-            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transform: `translate3d(${pan.x}px, ${pan.y}px, 0px) scale(${zoom})`,
             transformOrigin: "0 0",
-            transition: isDragging ? "none" : "transform 0.08s ease-out",
+            willChange: "transform",
+            transition: isDragging ? "none" : "transform 0.08s cubic-bezier(0.16, 1, 0.3, 1)",
           }}
           className="absolute left-0 top-0 pointer-events-auto"
         >
@@ -647,28 +736,28 @@ export default function MindMapViewPage() {
             <defs>
               {/* Neon Glow Filters */}
               <filter id="neon-glow-cyan" x="-30%" y="-30%" width="160%" height="160%">
-                <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#22D3EE" floodOpacity="0.75" />
+                <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#22D3EE" floodOpacity="0.8" />
               </filter>
               <filter id="neon-glow-violet" x="-30%" y="-30%" width="160%" height="160%">
-                <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#A855F7" floodOpacity="0.8" />
+                <feDropShadow dx="0" dy="0" stdDeviation="8" floodColor="#A855F7" floodOpacity="0.85" />
               </filter>
               <filter id="neon-glow-pink" x="-30%" y="-30%" width="160%" height="160%">
-                <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#F472B6" floodOpacity="0.75" />
+                <feDropShadow dx="0" dy="0" stdDeviation="6" floodColor="#F472B6" floodOpacity="0.8" />
               </filter>
 
               {/* Animated Connection Pulse Gradient */}
               <linearGradient id="pulse-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stopColor="#A855F7" stopOpacity="0.2" />
-                <stop offset="50%" stopColor="#22D3EE" stopOpacity="0.9" />
-                <stop offset="100%" stopColor="#F472B6" stopOpacity="0.2" />
+                <stop offset="0%" stopColor="#A855F7" stopOpacity="0.3" />
+                <stop offset="50%" stopColor="#22D3EE" stopOpacity="0.95" />
+                <stop offset="100%" stopColor="#F472B6" stopOpacity="0.3" />
               </linearGradient>
             </defs>
 
             {/* Background Orbit Guidelines for Orbital Layout */}
             {layoutMode === "orbital" && (
               <g className="pointer-events-none opacity-20">
-                <circle cx={650} cy={450} r={300} fill="none" stroke="#22D3EE" strokeDasharray="6 6" strokeWidth={1.5} />
-                <circle cx={650} cy={450} r={490} fill="none" stroke="#F472B6" strokeDasharray="4 8" strokeWidth={1} />
+                <circle cx={850} cy={650} r={360} fill="none" stroke="#22D3EE" strokeDasharray="6 6" strokeWidth={1.5} />
+                <circle cx={850} cy={650} r={580} fill="none" stroke="#F472B6" strokeDasharray="4 8" strokeWidth={1} />
               </g>
             )}
 
@@ -686,18 +775,18 @@ export default function MindMapViewPage() {
 
                 return (
                   <g key={e.id}>
-                    {/* Shadow/Base Line */}
+                    {/* Base Connection Line */}
                     <path
                       d={pathData}
                       fill="none"
-                      stroke={isPathActive ? "#22D3EE" : "#26262F"}
+                      stroke={isPathActive ? "#22D3EE" : "rgba(84, 84, 95, 0.45)"}
                       strokeWidth={isPathActive ? 2.5 : 1.5}
-                      strokeOpacity={isPathActive ? 0.9 : 0.6}
+                      strokeOpacity={isPathActive ? 0.95 : 0.6}
                       filter={isPathActive ? "url(#neon-glow-cyan)" : undefined}
                       className="transition-all duration-300"
                     />
 
-                    {/* Animated Energy Flow Pulse (for active connections) */}
+                    {/* Animated Energy Flow Pulse (for active path) */}
                     {isPathActive && (
                       <path
                         d={pathData}
@@ -724,8 +813,8 @@ export default function MindMapViewPage() {
                 const hasChildren = node.childCount > 0;
 
                 // Depth-specific aesthetics
-                let bgGradient = "linear-gradient(135deg, rgba(38, 38, 47, 0.95), rgba(18, 18, 24, 0.95))";
-                let borderColor = isSelected ? "#22D3EE" : isPathActive ? "#A855F7" : "rgba(84, 84, 95, 0.45)";
+                let bgGradient = "linear-gradient(135deg, rgba(27, 27, 36, 0.95), rgba(11, 11, 16, 0.95))";
+                let borderColor = isSelected ? "#22D3EE" : isPathActive ? "#A855F7" : "rgba(84, 84, 95, 0.5)";
                 let titleColor = "text-xs md:text-sm font-medium text-void-100";
                 let depthBadge = `L${node.depth}`;
 
@@ -733,24 +822,24 @@ export default function MindMapViewPage() {
                   bgGradient = "linear-gradient(135deg, #9333EA, #581C87)";
                   borderColor = "#F472B6";
                   titleColor = "text-sm md:text-base font-bold text-white";
-                  depthBadge = "L0 Core";
+                  depthBadge = "Core";
                 } else if (node.depth === 1) {
-                  bgGradient = "linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(15, 23, 42, 0.95))";
-                  borderColor = isSelected ? "#22D3EE" : "rgba(34, 211, 238, 0.65)";
+                  bgGradient = "linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(15, 23, 42, 0.96))";
+                  borderColor = isSelected ? "#22D3EE" : "rgba(34, 211, 238, 0.7)";
                   titleColor = "text-xs md:text-sm font-semibold text-white";
-                  depthBadge = "L1 Pillar";
+                  depthBadge = "Pillar";
                 } else if (node.depth === 2) {
-                  bgGradient = "linear-gradient(135deg, rgba(168, 85, 247, 0.18), rgba(15, 23, 42, 0.95))";
-                  borderColor = isSelected ? "#A855F7" : "rgba(168, 85, 247, 0.55)";
-                  depthBadge = "L2 Sub";
+                  bgGradient = "linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(15, 23, 42, 0.96))";
+                  borderColor = isSelected ? "#A855F7" : "rgba(168, 85, 247, 0.6)";
+                  depthBadge = "Branch";
                 } else if (node.depth === 3) {
-                  bgGradient = "linear-gradient(135deg, rgba(244, 114, 182, 0.16), rgba(15, 23, 42, 0.95))";
-                  borderColor = isSelected ? "#F472B6" : "rgba(244, 114, 182, 0.5)";
-                  depthBadge = "L3 Principle";
+                  bgGradient = "linear-gradient(135deg, rgba(244, 114, 182, 0.18), rgba(15, 23, 42, 0.96))";
+                  borderColor = isSelected ? "#F472B6" : "rgba(244, 114, 182, 0.55)";
+                  depthBadge = "Concept";
                 } else {
-                  bgGradient = "linear-gradient(135deg, rgba(163, 230, 53, 0.14), rgba(15, 23, 42, 0.95))";
-                  borderColor = isSelected ? "#A3E635" : "rgba(163, 230, 53, 0.45)";
-                  depthBadge = `L${node.depth} Detail`;
+                  bgGradient = "linear-gradient(135deg, rgba(163, 230, 53, 0.15), rgba(15, 23, 42, 0.96))";
+                  borderColor = isSelected ? "#A3E635" : "rgba(163, 230, 53, 0.5)";
+                  depthBadge = `Detail`;
                 }
 
                 return (
@@ -760,10 +849,10 @@ export default function MindMapViewPage() {
                     onClick={(e) => {
                       e.stopPropagation();
                       setSelectedId(node.id);
+                      setShowInspector(true);
                     }}
                     className="cursor-pointer group"
                   >
-                    {/* Node Container via ForeignObject for responsive HTML/Tailwind styling */}
                     <foreignObject width={p.width} height={p.height}>
                       <div
                         style={{
@@ -772,10 +861,10 @@ export default function MindMapViewPage() {
                         }}
                         className={`w-full h-full rounded-2xl border px-3.5 py-2.5 flex flex-col justify-center transition-all duration-300 shadow-xl ${
                           isSelected
-                            ? "ring-2 ring-neon-cyan shadow-neon-cyan/50 scale-105"
+                            ? "ring-2 ring-neon-cyan shadow-neon-cyan/50 scale-[1.03]"
                             : isPathActive
                             ? "ring-1 ring-neon-violet shadow-neon-violet/40"
-                            : "hover:border-void-400 hover:scale-[1.02]"
+                            : "hover:border-void-300 hover:scale-[1.02]"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-1.5">
@@ -783,19 +872,19 @@ export default function MindMapViewPage() {
                             {node.name}
                           </span>
 
-                          <div className="flex items-center gap-1 shrink-0">
-                            <span className="text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded bg-void-950/60 text-void-300 font-semibold border border-void-700/50">
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span className="text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded-md bg-void-950/70 text-void-300 font-semibold border border-void-700/60">
                               {depthBadge}
                             </span>
-                            {/* Interactive Expand / Collapse Toggle for Branch Nodes */}
+                            {/* Interactive Touch-friendly Expand/Collapse Toggle */}
                             {hasChildren && (
                               <button
                                 type="button"
                                 onClick={(e) => toggleCollapse(node.id, e)}
-                                className={`rounded-full px-2 py-0.5 text-xs font-mono font-bold flex items-center gap-0.5 transition-colors ${
+                                className={`min-w-[28px] min-h-[28px] px-2 py-0.5 rounded-full text-xs font-mono font-bold flex items-center justify-center gap-0.5 transition-all ${
                                   isCollapsed
-                                    ? "bg-neon-pink/20 text-neon-pink border border-neon-pink/40"
-                                    : "bg-void-700/80 text-void-300 hover:text-white"
+                                    ? "bg-neon-pink/20 text-neon-pink border border-neon-pink/40 shadow-glow-pink"
+                                    : "bg-void-700/80 text-void-300 hover:text-white hover:bg-void-600"
                                 }`}
                                 title={isCollapsed ? `Expand ${node.childCount} sub-branches` : "Collapse sub-branches"}
                               >
@@ -806,8 +895,8 @@ export default function MindMapViewPage() {
                           </div>
                         </div>
 
-                        {/* Sub-label snippet */}
-                        <p className="text-xs text-void-300/80 truncate mt-1">
+                        {/* Concept short description */}
+                        <p className="text-[11px] text-void-300/80 truncate mt-1">
                           {node.description}
                         </p>
                       </div>
@@ -819,32 +908,32 @@ export default function MindMapViewPage() {
           </svg>
         </div>
 
-        {/* Floating Viewport Dock Controls */}
-        <div className="absolute left-6 bottom-6 z-20 glass rounded-2xl p-1.5 flex items-center gap-1 border border-void-700/80 shadow-2xl">
+        {/* Floating Viewport Dock Controls (Optimized for Mobile Touch & Desktop) */}
+        <div className="absolute left-4 bottom-4 md:left-6 md:bottom-6 z-20 glass-modern rounded-2xl p-1.5 flex items-center gap-1 border border-void-700/80 shadow-2xl">
           <button
             onClick={() => setZoom((z) => Math.min(z * 1.15, 2.5))}
-            className="p-2 rounded-xl hover:bg-void-700 text-void-200 hover:text-white transition-colors"
+            className="w-9 h-9 rounded-xl hover:bg-void-700/70 text-void-200 hover:text-white transition-colors flex items-center justify-center"
             title="Zoom in"
           >
             <ZoomIn className="w-4 h-4" />
           </button>
           <button
             onClick={() => setZoom((z) => Math.max(z * 0.85, 0.3))}
-            className="p-2 rounded-xl hover:bg-void-700 text-void-200 hover:text-white transition-colors"
+            className="w-9 h-9 rounded-xl hover:bg-void-700/70 text-void-200 hover:text-white transition-colors flex items-center justify-center"
             title="Zoom out"
           >
             <ZoomOut className="w-4 h-4" />
           </button>
           <button
             onClick={handleResetView}
-            className="px-2.5 py-1.5 rounded-xl hover:bg-void-700 text-void-200 hover:text-white font-mono text-xs transition-colors"
+            className="px-2.5 h-9 rounded-xl hover:bg-void-700/70 text-void-200 hover:text-white font-mono text-xs transition-colors flex items-center justify-center"
             title="Reset Zoom to 100%"
           >
             {Math.round(zoom * 100)}%
           </button>
           <button
             onClick={handleFitView}
-            className="p-2 rounded-xl hover:bg-void-700 text-void-200 hover:text-white transition-colors"
+            className="w-9 h-9 rounded-xl hover:bg-void-700/70 text-void-200 hover:text-white transition-colors flex items-center justify-center"
             title="Fit Entire Map on Screen"
           >
             <Compass className="w-4 h-4" />
@@ -854,42 +943,42 @@ export default function MindMapViewPage() {
 
           <button
             onClick={handleExpandAll}
-            className="px-2 py-1 rounded-lg text-[11px] hover:bg-void-700 text-void-300 hover:text-white transition-colors"
+            className="px-2.5 h-9 rounded-xl text-xs hover:bg-void-700/70 text-void-300 hover:text-white transition-colors hidden sm:flex items-center"
             title="Expand all branches"
           >
-            Expand All
+            Expand
           </button>
           <button
             onClick={handleCollapseAll}
-            className="px-2 py-1 rounded-lg text-[11px] hover:bg-void-700 text-void-300 hover:text-white transition-colors"
+            className="px-2.5 h-9 rounded-xl text-xs hover:bg-void-700/70 text-void-300 hover:text-white transition-colors hidden sm:flex items-center"
             title="Collapse branches"
           >
             Collapse
           </button>
         </div>
 
-        {/* Floating Mini-Map / Navigator Indicator */}
-        <div className="hidden sm:flex absolute right-6 bottom-6 z-10 glass rounded-xl px-3 py-1.5 border border-void-700/60 text-[11px] text-void-400 items-center gap-2 pointer-events-none">
+        {/* Floating Mini-Map / Node Counter (Desktop indicator) */}
+        <div className="hidden lg:flex absolute left-6 top-6 z-10 glass-modern rounded-xl px-3 py-1.5 border border-void-700/60 text-[11px] text-void-400 items-center gap-2 pointer-events-none">
           <span className="w-2 h-2 rounded-full bg-neon-cyan animate-pulse" />
-          <span>{visibleNodeIds.size} nodes rendered • Drag to pan</span>
+          <span>{visibleNodeIds.size} concepts rendered</span>
         </div>
 
-        {/* Collapsible Concept Inspector Sidebar */}
+        {/* Desktop Inspector Sidebar */}
         <aside
-          className={`absolute right-6 top-6 z-20 w-80 max-w-[calc(100vw-3rem)] glass rounded-2xl p-5 border border-void-600/70 shadow-2xl transition-all duration-300 ${
+          className={`hidden md:block absolute right-6 top-6 z-30 w-80 lg:w-96 glass-modern rounded-2xl p-5 border border-void-600/80 shadow-2xl transition-all duration-300 max-h-[calc(100vh-180px)] overflow-y-auto ${
             showInspector ? "translate-x-0 opacity-100" : "translate-x-full opacity-0 pointer-events-none"
           }`}
         >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-neon-pink flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3" /> Concept Inspector
+          <div className="flex items-center justify-between mb-3.5">
+            <span className="text-[10px] font-mono uppercase tracking-widest text-neon-pink flex items-center gap-1.5 font-bold">
+              <Sparkles className="w-3.5 h-3.5" /> Concept Inspector
             </span>
             <button
               onClick={() => setShowInspector(false)}
-              className="text-void-400 hover:text-white text-xs p-1"
+              className="text-void-400 hover:text-white text-xs p-1 rounded-lg hover:bg-void-800 transition-colors"
               title="Close inspector"
             >
-              ✕
+              <X className="w-4 h-4" />
             </button>
           </div>
 
@@ -900,11 +989,11 @@ export default function MindMapViewPage() {
                   <h3 className="text-base font-semibold text-white leading-snug">
                     {selectedNode.name}
                   </h3>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-void-700 text-void-300 font-mono">
-                    Depth {selectedNode.depth}
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-void-800 text-void-300 font-mono shrink-0">
+                    L{selectedNode.depth}
                   </span>
                 </div>
-                <p className="text-xs text-void-300 leading-relaxed mt-2 bg-void-900/60 p-3 rounded-xl border border-void-700/50">
+                <p className="text-xs text-void-200 leading-relaxed mt-2.5 bg-void-900/80 p-3.5 rounded-xl border border-void-700/60">
                   {selectedNode.description}
                 </p>
               </div>
@@ -923,7 +1012,7 @@ export default function MindMapViewPage() {
                         <button
                           key={cId}
                           onClick={() => focusOnNode(cId)}
-                          className="text-xs px-2.5 py-1 rounded-lg bg-void-800/80 hover:bg-neon-cyan/20 border border-void-700 text-void-200 hover:text-neon-cyan transition-colors truncate max-w-[220px]"
+                          className="text-xs px-2.5 py-1.5 rounded-xl bg-void-800/80 hover:bg-neon-cyan/20 border border-void-700 text-void-200 hover:text-neon-cyan transition-colors truncate max-w-[220px]"
                         >
                           {childNode.name}
                         </button>
@@ -934,17 +1023,17 @@ export default function MindMapViewPage() {
               )}
 
               {/* Integrated AI Study Actions */}
-              <div className="pt-2 border-t border-void-700/60 space-y-2">
+              <div className="pt-3 border-t border-void-700/60 space-y-2">
                 <p className="text-[10px] font-mono uppercase tracking-wider text-void-400">
-                  Study this concept
+                  Interactive Study
                 </p>
 
                 <button
                   onClick={() => navigate("/chat", { state: { initialPrompt: `Explain the concept "${selectedNode.name}" in depth: ${selectedNode.description}` } })}
-                  className="w-full flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-void-900 border border-void-700 hover:border-neon-violet text-void-200 hover:text-white transition-all group"
+                  className="w-full flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-void-900/90 border border-void-700 hover:border-neon-violet text-void-200 hover:text-white transition-all group"
                 >
                   <span className="flex items-center gap-2">
-                    <MessageSquare className="w-3.5 h-3.5 text-neon-violet" />
+                    <MessageSquare className="w-4 h-4 text-neon-violet" />
                     <span>Ask AI in Chat</span>
                   </span>
                   <ChevronRight className="w-3.5 h-3.5 text-void-500 group-hover:translate-x-0.5 transition-transform" />
@@ -952,10 +1041,10 @@ export default function MindMapViewPage() {
 
                 <button
                   onClick={() => navigate("/study/quiz")}
-                  className="w-full flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-void-900 border border-void-700 hover:border-neon-cyan text-void-200 hover:text-white transition-all group"
+                  className="w-full flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-void-900/90 border border-void-700 hover:border-neon-cyan text-void-200 hover:text-white transition-all group"
                 >
                   <span className="flex items-center gap-2">
-                    <Brain className="w-3.5 h-3.5 text-neon-cyan" />
+                    <Brain className="w-4 h-4 text-neon-cyan" />
                     <span>Generate Concept Quiz</span>
                   </span>
                   <ChevronRight className="w-3.5 h-3.5 text-void-500 group-hover:translate-x-0.5 transition-transform" />
@@ -963,10 +1052,10 @@ export default function MindMapViewPage() {
 
                 <button
                   onClick={() => navigate("/study/flashcards/new")}
-                  className="w-full flex items-center justify-between text-xs px-3 py-2 rounded-xl bg-void-900 border border-void-700 hover:border-neon-pink text-void-200 hover:text-white transition-all group"
+                  className="w-full flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-void-900/90 border border-void-700 hover:border-neon-pink text-void-200 hover:text-white transition-all group"
                 >
                   <span className="flex items-center gap-2">
-                    <Layers className="w-3.5 h-3.5 text-neon-pink" />
+                    <Layers className="w-4 h-4 text-neon-pink" />
                     <span>Create Flashcards</span>
                   </span>
                   <ChevronRight className="w-3.5 h-3.5 text-void-500 group-hover:translate-x-0.5 transition-transform" />
@@ -974,18 +1063,107 @@ export default function MindMapViewPage() {
               </div>
             </div>
           ) : (
-            <p className="text-xs text-void-300">Click any concept node to inspect its breakdown.</p>
+            <p className="text-xs text-void-300">Tap any concept node to inspect its breakdown.</p>
           )}
         </aside>
 
-        {/* Button to reopen inspector if closed */}
+        {/* Mobile Responsive Bottom Sheet Inspector */}
+        {showInspector && selectedNode && (
+          <div className="md:hidden fixed inset-0 z-40 flex flex-col justify-end">
+            <div
+              className="absolute inset-0 bg-void-950/60 backdrop-blur-sm transition-opacity"
+              onClick={() => setShowInspector(false)}
+            />
+            <div className="relative glass-modern rounded-t-3xl border-t border-void-600/80 p-5 shadow-2xl max-h-[75vh] overflow-y-auto z-10 animate-in slide-in-from-bottom duration-300">
+              {/* Drag Pill Handle */}
+              <div className="w-12 h-1 bg-void-600 rounded-full mx-auto mb-3" />
+
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[10px] font-mono uppercase tracking-widest text-neon-pink flex items-center gap-1.5 font-bold">
+                  <Sparkles className="w-3.5 h-3.5" /> Concept Inspector
+                </span>
+                <button
+                  onClick={() => setShowInspector(false)}
+                  className="w-8 h-8 rounded-full bg-void-800 text-void-300 flex items-center justify-center hover:text-white"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <h3 className="text-base font-semibold text-white">
+                    {selectedNode.name}
+                  </h3>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-void-800 text-void-300 font-mono">
+                    L{selectedNode.depth}
+                  </span>
+                </div>
+                <p className="text-xs text-void-200 leading-relaxed bg-void-900/90 p-3 rounded-xl border border-void-700/60 mb-4">
+                  {selectedNode.description}
+                </p>
+              </div>
+
+              {selectedNode.childrenIds.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-[11px] font-medium text-void-300 mb-2">
+                    Subconcepts ({selectedNode.childrenIds.length}):
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedNode.childrenIds.map((cId) => {
+                      const childNode = flatMap.get(cId);
+                      if (!childNode) return null;
+                      return (
+                        <button
+                          key={cId}
+                          onClick={() => focusOnNode(cId)}
+                          className="text-xs px-2.5 py-1.5 rounded-xl bg-void-800 border border-void-700 text-void-200 hover:text-neon-cyan transition-colors"
+                        >
+                          {childNode.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-2 pt-2 border-t border-void-800">
+                <button
+                  onClick={() => navigate("/chat", { state: { initialPrompt: `Explain the concept "${selectedNode.name}" in depth: ${selectedNode.description}` } })}
+                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-void-900 border border-void-700 text-void-200 text-center"
+                >
+                  <MessageSquare className="w-4 h-4 text-neon-violet mb-1" />
+                  <span className="text-[10px]">Chat AI</span>
+                </button>
+
+                <button
+                  onClick={() => navigate("/study/quiz")}
+                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-void-900 border border-void-700 text-void-200 text-center"
+                >
+                  <Brain className="w-4 h-4 text-neon-cyan mb-1" />
+                  <span className="text-[10px]">Quiz</span>
+                </button>
+
+                <button
+                  onClick={() => navigate("/study/flashcards/new")}
+                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-void-900 border border-void-700 text-void-200 text-center"
+                >
+                  <Layers className="w-4 h-4 text-neon-pink mb-1" />
+                  <span className="text-[10px]">Cards</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Reopen Inspector Button if closed */}
         {!showInspector && (
           <button
             onClick={() => setShowInspector(true)}
-            className="absolute right-6 top-6 z-20 glass rounded-xl px-3 py-2 text-xs text-white border border-void-600 flex items-center gap-2 shadow-xl hover:border-neon-pink transition-colors"
+            className="absolute right-4 top-4 md:right-6 md:top-6 z-20 glass-modern rounded-xl px-3.5 py-2 text-xs text-white border border-void-600 flex items-center gap-2 shadow-xl hover:border-neon-pink transition-colors min-h-[36px]"
           >
             <Sparkles className="w-3.5 h-3.5 text-neon-pink" />
-            <span>Open Inspector</span>
+            <span className="hidden sm:inline">Open Inspector</span>
           </button>
         )}
       </div>
