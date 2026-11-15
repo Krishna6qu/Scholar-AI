@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   ChevronLeft,
   ChevronRight,
@@ -10,6 +10,9 @@ import {
   ThumbsUp,
   HelpCircle,
   Layers,
+  MessageSquare,
+  Brain,
+  FileText,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -29,6 +32,7 @@ interface FlashcardSet {
 
 export default function FlashcardViewPage() {
   const { flashcardId } = useParams<{ flashcardId: string }>();
+  const navigate = useNavigate();
   const [set, setSet] = useState<FlashcardSet | null>(null);
   const [index, setIndex] = useState(0);
   const [flipped, setFlipped] = useState(false);
@@ -396,14 +400,67 @@ export default function FlashcardViewPage() {
         </div>
 
         {/* Keyboard & Swipe Ergonomics Footer */}
-        <p className="text-center text-[11px] text-void-400 mt-5 font-mono">
+        <p className="text-center text-[11px] text-slate-300 mt-5 font-mono">
           <span className="hidden sm:inline">
-            Use <kbd className="px-1 py-0.5 rounded bg-void-800 border border-void-700 text-void-300">Space</kbd> to flip, and <kbd className="px-1 py-0.5 rounded bg-void-800 border border-void-700 text-void-300">←</kbd> <kbd className="px-1 py-0.5 rounded bg-void-800 border border-void-700 text-void-300">→</kbd> to navigate
+            Use <kbd className="px-1 py-0.5 rounded bg-void-800 border border-void-600 text-white font-bold">Space</kbd> to flip, and <kbd className="px-1 py-0.5 rounded bg-void-800 border border-void-600 text-white font-bold">←</kbd> <kbd className="px-1 py-0.5 rounded bg-void-800 border border-void-600 text-white font-bold">→</kbd> to navigate
           </span>
           <span className="sm:hidden">
             Swipe left/right to navigate • Tap to flip
           </span>
         </p>
+
+        {/* Cross-Feature Study Bridges */}
+        <div className="mt-8 pt-6 border-t border-void-600 w-full">
+          <p className="text-[11px] font-mono uppercase tracking-wider text-slate-300 font-semibold mb-3">
+            Cross-study actions for "{set.title}"
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button
+              onClick={() => navigate("/chat", { state: { initialPrompt: `Based on my flashcards on "${set.title}", test my understanding and explain any tricky concepts in depth.` } })}
+              className="flex items-center justify-between p-3.5 rounded-2xl bg-void-800 border border-void-600 hover:border-neon-violet hover:bg-void-700 text-left transition-all group shadow-sm"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-neon-violet/15 border border-neon-violet/40 flex items-center justify-center text-neon-violet shrink-0">
+                  <MessageSquare className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white truncate">Ask AI Chat</p>
+                  <p className="text-[10px] text-slate-300 font-medium truncate">Deep dive</p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => navigate(`/study/quiz?topic=${encodeURIComponent(set.title)}`, { state: { topic: set.title } })}
+              className="flex items-center justify-between p-3.5 rounded-2xl bg-void-800 border border-void-600 hover:border-neon-cyan hover:bg-void-700 text-left transition-all group shadow-sm"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-neon-cyan/15 border border-neon-cyan/40 flex items-center justify-center text-neon-cyan shrink-0">
+                  <Brain className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white truncate">Generate Quiz</p>
+                  <p className="text-[10px] text-slate-300 font-medium truncate">Test on "{set.title}"</p>
+                </div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => navigate(`/study/notes/new?topic=${encodeURIComponent(set.title)}`, { state: { topic: set.title } })}
+              className="flex items-center justify-between p-3.5 rounded-2xl bg-void-800 border border-void-600 hover:border-neon-pink hover:bg-void-700 text-left transition-all group shadow-sm"
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-neon-pink/15 border border-neon-pink/40 flex items-center justify-center text-neon-pink shrink-0">
+                  <FileText className="w-4 h-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-white truncate">Create Notes</p>
+                  <p className="text-[10px] text-slate-300 font-medium truncate">Revision summary</p>
+                </div>
+              </div>
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

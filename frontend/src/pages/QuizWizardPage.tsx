@@ -150,9 +150,9 @@ export default function QuizWizardPage() {
           {step === 0 && (
             <div>
               {initialTopic && (
-                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan text-xs font-medium mb-4 shadow-sm shadow-neon-cyan/10">
-                  <Sparkles className="w-3.5 h-3.5 shrink-0 animate-pulse" />
-                  <span>Topic pre-filled from your AI Chat session — edit anytime or proceed.</span>
+                <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-neon-cyan/15 border border-neon-cyan/40 text-neon-cyan text-xs font-semibold mb-4 shadow-sm shadow-neon-cyan/10">
+                  <Sparkles className="w-4 h-4 shrink-0 animate-pulse" />
+                  <span>Topic pre-filled: "{initialTopic}" — edit anytime or click Next.</span>
                 </div>
               )}
               <input

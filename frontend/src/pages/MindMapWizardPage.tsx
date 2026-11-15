@@ -63,9 +63,9 @@ export default function MindMapWizardPage() {
           </p>
 
           {initialTopic && (
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-neon-lime/10 border border-neon-lime/30 text-neon-lime text-xs font-medium mb-5 shadow-sm shadow-neon-lime/10">
-              <Sparkles className="w-3.5 h-3.5 shrink-0 animate-pulse" />
-              <span>Topic pre-filled from your AI Chat session — edit anytime or proceed.</span>
+            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-neon-lime/15 border border-neon-lime/40 text-neon-lime text-xs font-semibold mb-5 shadow-sm shadow-neon-lime/10">
+              <Sparkles className="w-4 h-4 shrink-0 animate-pulse" />
+              <span>Topic pre-filled: "{initialTopic}" — edit anytime or click Generate.</span>
             </div>
           )}
 

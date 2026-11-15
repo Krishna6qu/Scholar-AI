@@ -1043,25 +1043,31 @@ export default function MindMapViewPage() {
                 </button>
 
                 <button
-                  onClick={() => navigate("/study/quiz")}
-                  className="w-full flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-void-900/90 border border-void-700 hover:border-neon-cyan text-void-200 hover:text-white transition-all group"
+                  onClick={() => {
+                    const topic = selectedNode?.name || map?.title || "";
+                    navigate(`/study/quiz?topic=${encodeURIComponent(topic)}`, { state: { topic } });
+                  }}
+                  className="w-full flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-void-800/90 border border-void-600 hover:border-neon-cyan text-slate-100 hover:text-white transition-all group shadow-sm"
                 >
-                  <span className="flex items-center gap-2">
-                    <Brain className="w-4 h-4 text-neon-cyan" />
-                    <span>Generate Concept Quiz</span>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Brain className="w-4 h-4 text-neon-cyan shrink-0" />
+                    <span className="truncate">Generate Concept Quiz</span>
                   </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-void-500 group-hover:translate-x-0.5 transition-transform" />
+                  <ChevronRight className="w-3.5 h-3.5 text-void-500 group-hover:translate-x-0.5 transition-transform shrink-0" />
                 </button>
 
                 <button
-                  onClick={() => navigate("/study/flashcards/new")}
-                  className="w-full flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-void-900/90 border border-void-700 hover:border-neon-pink text-void-200 hover:text-white transition-all group"
+                  onClick={() => {
+                    const topic = selectedNode?.name || map?.title || "";
+                    navigate(`/study/flashcards/new?topic=${encodeURIComponent(topic)}`, { state: { topic } });
+                  }}
+                  className="w-full flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-void-800/90 border border-void-600 hover:border-neon-pink text-slate-100 hover:text-white transition-all group shadow-sm"
                 >
-                  <span className="flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-neon-pink" />
-                    <span>Create Flashcards</span>
+                  <span className="flex items-center gap-2 min-w-0">
+                    <Layers className="w-4 h-4 text-neon-pink shrink-0" />
+                    <span className="truncate">Create Flashcards</span>
                   </span>
-                  <ChevronRight className="w-3.5 h-3.5 text-void-500 group-hover:translate-x-0.5 transition-transform" />
+                  <ChevronRight className="w-3.5 h-3.5 text-void-500 group-hover:translate-x-0.5 transition-transform shrink-0" />
                 </button>
               </div>
             </div>
@@ -1140,19 +1146,25 @@ export default function MindMapViewPage() {
                 </button>
 
                 <button
-                  onClick={() => navigate("/study/quiz")}
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-void-900 border border-void-700 text-void-200 text-center"
+                  onClick={() => {
+                    const topic = selectedNode?.name || map?.title || "";
+                    navigate(`/study/quiz?topic=${encodeURIComponent(topic)}`, { state: { topic } });
+                  }}
+                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-void-800 border border-void-600 text-slate-100 text-center hover:border-neon-cyan hover:text-white transition-colors"
                 >
                   <Brain className="w-4 h-4 text-neon-cyan mb-1" />
-                  <span className="text-[10px]">Quiz</span>
+                  <span className="text-[10px] font-medium">Quiz</span>
                 </button>
 
                 <button
-                  onClick={() => navigate("/study/flashcards/new")}
-                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-void-900 border border-void-700 text-void-200 text-center"
+                  onClick={() => {
+                    const topic = selectedNode?.name || map?.title || "";
+                    navigate(`/study/flashcards/new?topic=${encodeURIComponent(topic)}`, { state: { topic } });
+                  }}
+                  className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-void-800 border border-void-600 text-slate-100 text-center hover:border-neon-pink hover:text-white transition-colors"
                 >
                   <Layers className="w-4 h-4 text-neon-pink mb-1" />
-                  <span className="text-[10px]">Cards</span>
+                  <span className="text-[10px] font-medium">Cards</span>
                 </button>
               </div>
             </div>

@@ -142,7 +142,7 @@ export default function NoteViewPage() {
               </button>
 
               <button
-                onClick={() => navigate("/study/quiz")}
+                onClick={() => navigate(`/study/quiz?topic=${encodeURIComponent(note.title)}`, { state: { topic: note.title } })}
                 className="flex items-center justify-between p-3.5 rounded-2xl bg-void-800 border border-void-600 hover:border-neon-cyan hover:bg-void-700 text-left transition-all group shadow-sm"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -151,13 +151,13 @@ export default function NoteViewPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-white truncate">Concept Quiz</p>
-                    <p className="text-[10px] text-slate-300 font-medium">Test retention</p>
+                    <p className="text-[10px] text-slate-300 font-medium truncate">Test on "{note.title}"</p>
                   </div>
                 </div>
               </button>
 
               <button
-                onClick={() => navigate("/study/flashcards/new")}
+                onClick={() => navigate(`/study/flashcards/new?topic=${encodeURIComponent(note.title)}`, { state: { topic: note.title } })}
                 className="flex items-center justify-between p-3.5 rounded-2xl bg-void-800 border border-void-600 hover:border-neon-pink hover:bg-void-700 text-left transition-all group shadow-sm"
               >
                 <div className="flex items-center gap-2.5 min-w-0">
@@ -166,7 +166,7 @@ export default function NoteViewPage() {
                   </div>
                   <div className="min-w-0">
                     <p className="text-xs font-bold text-white truncate">3D Flashcards</p>
-                    <p className="text-[10px] text-slate-300 font-medium">Build deck</p>
+                    <p className="text-[10px] text-slate-300 font-medium truncate">Deck for "{note.title}"</p>
                   </div>
                 </div>
               </button>

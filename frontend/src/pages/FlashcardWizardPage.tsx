@@ -66,9 +66,9 @@ export default function FlashcardWizardPage() {
           </p>
 
           {initialTopic && (
-            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-neon-pink/10 border border-neon-pink/30 text-neon-pink text-xs font-medium mb-5 shadow-sm shadow-neon-pink/10">
-              <Sparkles className="w-3.5 h-3.5 shrink-0 animate-pulse" />
-              <span>Topic pre-filled from your AI Chat session — edit anytime or proceed.</span>
+            <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-neon-pink/15 border border-neon-pink/40 text-neon-pink text-xs font-semibold mb-5 shadow-sm shadow-neon-pink/10">
+              <Sparkles className="w-4 h-4 shrink-0 animate-pulse" />
+              <span>Topic pre-filled: "{initialTopic}" — edit anytime or click Generate.</span>
             </div>
           )}
 
