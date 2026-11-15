@@ -181,7 +181,14 @@ def extract_json(raw: str) -> dict:
     introductory/trailing text, invalid backslash escapes (LaTeX/markdown),
     unescaped control characters, and truncated tokens."""
     stripped = raw.strip()
-    # 1. Try finding JSON inside markdown code fence
+    # 1. Try finding JSON inside markdown code fence (greedy first to handle inner code blocks)
+    greedy_fence = re.search(r"```(?:json)?\s*([\s\S]*)\s*```", stripped)
+    if greedy_fence:
+        res = _safe_json_loads(greedy_fence.group(1).strip())
+        if res is not None:
+            return res
+
+    # 1b. Non-greedy fence fallback if multiple separate code blocks exist
     fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", stripped)
     if fence_match:
         res = _safe_json_loads(fence_match.group(1).strip())

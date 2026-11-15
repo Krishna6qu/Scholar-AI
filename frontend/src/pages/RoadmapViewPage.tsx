@@ -198,12 +198,12 @@ export default function RoadmapViewPage() {
             </p>
 
             {/* Overall Progress Tracker Bar */}
-            <div className="mt-5 bg-void-900/90 rounded-2xl p-4 border border-void-700/60">
-              <div className="flex items-center justify-between text-xs text-void-300 mb-2">
-                <span className="font-medium text-void-200">Overall Curriculum Mastery</span>
+            <div className="mt-5 bg-void-800/95 rounded-2xl p-4 sm:p-5 border border-void-600 shadow-lg">
+              <div className="flex items-center justify-between text-xs text-slate-200 mb-2">
+                <span className="font-semibold text-white">Overall Curriculum Mastery</span>
                 <span className="font-mono font-bold text-neon-lime text-sm">{progressPercent}%</span>
               </div>
-              <div className="w-full h-3 rounded-full bg-void-800/90 overflow-hidden p-0.5 border border-void-700/60">
+              <div className="w-full h-3 rounded-full bg-void-900 overflow-hidden p-0.5 border border-void-600">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-neon-violet via-neon-cyan to-neon-lime transition-all duration-700 ease-out shadow-glow-cyan"
                   style={{ width: `${progressPercent}%` }}
@@ -245,12 +245,12 @@ export default function RoadmapViewPage() {
                   </div>
 
                   {/* Phase Card */}
-                  <div className="glass-modern rounded-2xl p-4 sm:p-6 border border-void-700/70 hover:border-void-600 transition-all">
+                  <div className="glass-modern rounded-2xl p-5 sm:p-7 border border-void-600/90 hover:border-void-500 shadow-xl transition-all">
                     {/* Phase Header */}
                     <div className="flex items-start sm:items-center justify-between mb-2 flex-col sm:flex-row gap-2">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-md bg-void-800 text-void-300 border border-void-700">
+                          <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded-md bg-void-800 text-white font-bold border border-void-600">
                             Phase {phase.order}
                           </span>
                           <h2 className="text-base sm:text-lg font-bold text-white">
@@ -260,17 +260,17 @@ export default function RoadmapViewPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <span className="flex items-center gap-1 text-[11px] text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30 rounded-full px-2.5 py-1">
+                        <span className="flex items-center gap-1 text-[11px] font-semibold text-neon-cyan bg-neon-cyan/15 border border-neon-cyan/40 rounded-full px-2.5 py-1">
                           <Clock className="w-3 h-3" />
                           <span>{phase.duration_estimate}</span>
                         </span>
-                        <span className="text-[11px] font-mono text-void-400">
+                        <span className="text-[11px] font-mono font-bold text-slate-300">
                           {phaseCompletedSteps}/{phase.steps.length}
                         </span>
                       </div>
                     </div>
 
-                    <p className="text-void-300 text-xs sm:text-sm mb-5 leading-relaxed">
+                    <p className="text-slate-200 text-xs sm:text-sm mb-5 leading-relaxed font-normal">
                       {phase.description}
                     </p>
 
@@ -284,10 +284,10 @@ export default function RoadmapViewPage() {
                         return (
                           <div
                             key={j}
-                            className={`rounded-xl p-3.5 sm:p-4 border transition-all duration-300 ${
+                            className={`rounded-2xl p-3.5 sm:p-4 border transition-all duration-300 shadow-md ${
                               step.is_completed
-                                ? "bg-neon-lime/[0.04] border-neon-lime/30 shadow-[0_0_15px_-5px_rgba(163,230,53,0.15)]"
-                                : "bg-void-900/80 border-void-700/80 hover:border-void-600 hover:bg-void-900"
+                                ? "bg-neon-lime/[0.08] border-neon-lime/40 shadow-[0_0_15px_-5px_rgba(163,230,53,0.2)]"
+                                : "bg-void-800/90 border-void-600/90 hover:border-void-500 hover:bg-void-700/80"
                             }`}
                           >
                             <div className="flex items-start gap-3">
@@ -296,7 +296,7 @@ export default function RoadmapViewPage() {
                                 type="button"
                                 onClick={() => toggleStep(i, j, !step.is_completed)}
                                 disabled={isTogglingThis}
-                                className="min-w-[36px] min-h-[36px] -ml-1 -mt-1 flex items-center justify-center rounded-xl hover:bg-void-800/80 active:scale-90 transition-transform shrink-0 disabled:opacity-50"
+                                className="min-w-[36px] min-h-[36px] -ml-1 -mt-1 flex items-center justify-center rounded-xl hover:bg-void-700 active:scale-90 transition-transform shrink-0 disabled:opacity-50"
                                 aria-label={step.is_completed ? "Mark step incomplete" : "Mark step complete"}
                               >
                                 {isTogglingThis ? (
@@ -308,35 +308,35 @@ export default function RoadmapViewPage() {
                                     }`}
                                   />
                                 ) : (
-                                  <Circle className="w-5 h-5 text-void-500 hover:text-neon-cyan transition-colors" />
+                                  <Circle className="w-5 h-5 text-slate-400 hover:text-neon-cyan transition-colors" />
                                 )}
                               </button>
 
                               <div className="flex-1 min-w-0">
                                 <p
-                                  className={`text-xs sm:text-sm font-semibold transition-all ${
+                                  className={`text-xs sm:text-sm font-bold transition-all ${
                                     step.is_completed
-                                      ? "text-void-300 line-through decoration-neon-lime/60"
+                                      ? "text-slate-400 line-through decoration-neon-lime/60"
                                       : "text-white"
                                   }`}
                                 >
                                   {step.title}
                                 </p>
 
-                                <p className="text-void-300 text-xs mt-1.5 leading-relaxed">
+                                <p className="text-slate-200 text-xs sm:text-sm mt-1.5 leading-relaxed font-normal">
                                   {step.description}
                                 </p>
 
                                 {/* Resources Badges */}
                                 {step.resources?.length > 0 && (
-                                  <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2 border-t border-void-800/80">
-                                    <span className="text-[10px] uppercase font-mono text-void-400 mr-1 flex items-center gap-1">
-                                      <BookOpen className="w-3 h-3 text-void-400" /> Key Topics:
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2.5 border-t border-void-700">
+                                    <span className="text-[10px] uppercase font-mono text-slate-300 mr-1 flex items-center gap-1 font-semibold">
+                                      <BookOpen className="w-3 h-3 text-neon-cyan" /> Key Topics:
                                     </span>
                                     {step.resources.map((r, k) => (
                                       <span
                                         key={k}
-                                        className="text-[11px] text-void-200 bg-void-800/90 border border-void-700 rounded-lg px-2 py-0.5 hover:border-neon-cyan/50 hover:text-neon-cyan transition-colors"
+                                        className="text-xs text-white font-medium bg-void-700 border border-void-500 rounded-lg px-2.5 py-1 hover:border-neon-cyan hover:text-neon-cyan transition-colors"
                                       >
                                         {r}
                                       </span>

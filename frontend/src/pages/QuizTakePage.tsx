@@ -247,22 +247,22 @@ export default function QuizTakePage() {
 
                     <div className="space-y-1.5 text-xs">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-void-400 font-mono text-[11px] shrink-0">Your Answer:</span>
-                        <span className={r.is_correct ? "text-neon-lime font-medium" : "text-neon-pink font-medium"}>
+                        <span className="text-slate-300 font-mono text-[11px] shrink-0 font-semibold">Your Answer:</span>
+                        <span className={r.is_correct ? "text-neon-lime font-bold" : "text-neon-pink font-bold"}>
                           {r.your_answer ?? "No answer submitted"}
                         </span>
                       </div>
 
                       {!r.is_correct && r.correct_answer && (
                         <div className="flex items-baseline gap-2">
-                          <span className="text-void-400 font-mono text-[11px] shrink-0">Correct Answer:</span>
-                          <span className="text-neon-lime font-medium">{r.correct_answer}</span>
+                          <span className="text-slate-300 font-mono text-[11px] shrink-0 font-semibold">Correct Answer:</span>
+                          <span className="text-neon-lime font-bold">{r.correct_answer}</span>
                         </div>
                       )}
 
                       {r.explanation && (
-                        <div className="mt-2.5 pt-2 border-t border-void-800/80 text-xs text-void-300 leading-relaxed bg-void-900/60 p-2.5 rounded-xl border border-void-700/50">
-                          <span className="text-void-200 font-semibold block mb-0.5">Explanation:</span>
+                        <div className="mt-2.5 pt-2 border-t border-void-600 text-xs sm:text-sm text-slate-100 leading-relaxed bg-void-800/95 p-3.5 rounded-xl border border-void-600 shadow-md">
+                          <span className="text-neon-cyan font-bold block mb-1">Explanation:</span>
                           {r.explanation}
                         </div>
                       )}
@@ -345,19 +345,19 @@ export default function QuizTakePage() {
             return (
               <div
                 key={q.id}
-                className={`glass-modern rounded-3xl p-5 sm:p-6 border transition-all duration-300 ${
+                className={`glass-modern rounded-3xl p-5 sm:p-6 border transition-all duration-300 shadow-xl ${
                   isAnswered
-                    ? "border-neon-cyan/30 shadow-[0_0_20px_-8px_rgba(34,211,238,0.15)]"
-                    : "border-void-700/80"
+                    ? "border-neon-cyan/50 shadow-[0_0_24px_-8px_rgba(34,211,238,0.25)]"
+                    : "border-void-600/90"
                 }`}
               >
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-md bg-void-800 text-void-300 border border-void-700">
+                    <span className="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-md bg-void-800 text-white border border-void-600">
                       Q{i + 1} of {quiz.questions.length}
                     </span>
                     {isAnswered && (
-                      <span className="text-[10px] font-mono text-neon-cyan flex items-center gap-1">
+                      <span className="text-[10px] font-mono text-neon-cyan font-bold flex items-center gap-1">
                         <CheckCircle2 className="w-3 h-3" /> Answered
                       </span>
                     )}
@@ -369,8 +369,8 @@ export default function QuizTakePage() {
                       onClick={() => toggleHint(q.id)}
                       className={`min-w-[36px] min-h-[36px] flex items-center justify-center rounded-xl border text-xs transition-colors ${
                         shownHints.has(q.id)
-                          ? "bg-neon-cyan/20 border-neon-cyan text-neon-cyan"
-                          : "border-void-700 text-void-400 hover:text-neon-cyan hover:border-void-500"
+                          ? "bg-neon-cyan/25 border-neon-cyan text-neon-cyan shadow-glow-cyan"
+                          : "border-void-600 bg-void-800 text-slate-200 hover:text-neon-cyan hover:border-void-500"
                       }`}
                       title="Toggle Hint"
                     >
@@ -379,12 +379,12 @@ export default function QuizTakePage() {
                   )}
                 </div>
 
-                <p className="text-white text-sm sm:text-base font-medium mb-4 leading-relaxed">
+                <p className="text-white text-base sm:text-lg font-bold mb-4 leading-relaxed">
                   {q.question_text}
                 </p>
 
                 {shownHints.has(q.id) && q.hint && (
-                  <div className="flex items-start gap-2 text-xs text-neon-cyan bg-neon-cyan/10 border border-neon-cyan/30 rounded-xl px-3.5 py-2.5 mb-4 animate-in fade-in duration-200">
+                  <div className="flex items-start gap-2 text-xs sm:text-sm text-neon-cyan bg-neon-cyan/15 border border-neon-cyan/40 rounded-xl px-3.5 py-2.5 mb-4 animate-in fade-in duration-200 font-medium">
                     <Sparkles className="w-4 h-4 shrink-0 mt-0.5" />
                     <span>{q.hint}</span>
                   </div>
@@ -396,7 +396,7 @@ export default function QuizTakePage() {
                     value={answers[q.id]?.text ?? ""}
                     onChange={(e) => setTextAnswer(q.id, e.target.value)}
                     placeholder="Type your response here…"
-                    className="w-full rounded-xl border border-void-700 bg-void-900/90 px-4 py-3 text-sm text-white placeholder-void-400 focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 focus:border-neon-cyan transition-all"
+                    className="w-full rounded-xl border border-void-600 bg-void-800/95 px-4 py-3 text-sm text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 focus:border-neon-cyan transition-all"
                   />
                 ) : (
                   <div className="grid gap-2.5">
@@ -409,18 +409,18 @@ export default function QuizTakePage() {
                           key={opt.id}
                           type="button"
                           onClick={() => selectOption(q.id, opt.id)}
-                          className={`w-full text-left p-3.5 sm:p-4 rounded-2xl border text-xs sm:text-sm transition-all duration-200 flex items-center justify-between gap-3 active:scale-[0.99] min-h-[50px] ${
+                          className={`w-full text-left p-3.5 sm:p-4 rounded-2xl border text-xs sm:text-sm transition-all duration-200 flex items-center justify-between gap-3 active:scale-[0.99] min-h-[50px] shadow-sm ${
                             isSelected
-                              ? "border-neon-cyan bg-neon-cyan/15 text-white shadow-glow-cyan/30"
-                              : "border-void-700/80 bg-void-900/70 text-void-200 hover:text-white hover:border-void-500 hover:bg-void-900"
+                              ? "border-neon-cyan bg-neon-cyan/20 text-white shadow-glow-cyan/40 font-semibold"
+                              : "border-void-600/90 bg-void-800/90 text-slate-100 font-medium hover:text-white hover:border-neon-cyan/50 hover:bg-void-700/90"
                           }`}
                         >
                           <div className="flex items-center gap-3 min-w-0">
                             <span
                               className={`w-7 h-7 rounded-xl flex items-center justify-center font-mono font-bold text-xs shrink-0 transition-colors ${
                                 isSelected
-                                  ? "bg-neon-cyan text-void-950"
-                                  : "bg-void-800 text-void-400 border border-void-700"
+                                  ? "bg-neon-cyan text-void-950 font-extrabold"
+                                  : "bg-void-700 text-white font-bold border border-void-500"
                               }`}
                             >
                               {optionLabel}
@@ -433,7 +433,7 @@ export default function QuizTakePage() {
                               className={`w-4 h-4 rounded-full border flex items-center justify-center transition-all ${
                                 isSelected
                                   ? "border-neon-cyan bg-neon-cyan"
-                                  : "border-void-600 bg-transparent"
+                                  : "border-void-500 bg-transparent"
                               }`}
                             >
                               {isSelected && <div className="w-1.5 h-1.5 rounded-full bg-void-950" />}

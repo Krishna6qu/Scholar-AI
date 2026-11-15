@@ -278,22 +278,22 @@ export default function FlashcardViewPage() {
           >
             {/* FRONT FACE (Question) */}
             <div
-              className={`absolute inset-0 backface-hidden glass-modern rounded-3xl p-6 sm:p-10 flex flex-col justify-between items-center text-center border transition-all ${
-                swipeGlow || "border-white/[0.08] hover:border-neon-pink/50 shadow-2xl"
+              className={`absolute inset-0 backface-hidden glass-modern rounded-3xl p-6 sm:p-10 flex flex-col justify-between items-center text-center border transition-all bg-void-800/95 ${
+                swipeGlow || "border-void-500/80 hover:border-neon-pink/70 shadow-2xl"
               }`}
             >
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-neon-pink/10 border border-neon-pink/30 text-neon-pink text-xs font-semibold uppercase tracking-wider">
-                <HelpCircle className="w-3 h-3" />
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-neon-pink/15 border border-neon-pink/40 text-neon-pink text-xs font-bold uppercase tracking-wider shadow-sm">
+                <HelpCircle className="w-3.5 h-3.5" />
                 <span>Question</span>
               </div>
 
               <div className="my-auto py-4">
-                <p className="text-white text-lg sm:text-2xl font-medium leading-relaxed max-w-lg">
+                <p className="text-white text-xl sm:text-2xl md:text-3xl font-bold leading-relaxed max-w-lg">
                   {card.front_text}
                 </p>
               </div>
 
-              <div className="text-void-400 text-xs flex items-center gap-1.5 group-hover:text-void-200 transition-colors">
+              <div className="text-slate-300 text-xs flex items-center gap-1.5 group-hover:text-white transition-colors font-medium">
                 <RotateCw className="w-3.5 h-3.5 text-neon-pink animate-pulse" />
                 <span className="font-mono text-[11px]">Click / Tap to reveal answer</span>
               </div>
@@ -301,22 +301,22 @@ export default function FlashcardViewPage() {
 
             {/* BACK FACE (Answer) */}
             <div
-              className={`absolute inset-0 backface-hidden rotate-y-180 glass-modern rounded-3xl p-6 sm:p-10 flex flex-col justify-between items-center text-center border transition-all ${
-                swipeGlow || "border-neon-cyan/40 shadow-2xl shadow-neon-cyan/10"
+              className={`absolute inset-0 backface-hidden rotate-y-180 glass-modern rounded-3xl p-6 sm:p-10 flex flex-col justify-between items-center text-center border transition-all bg-void-800/95 ${
+                swipeGlow || "border-neon-cyan/60 shadow-2xl shadow-neon-cyan/20"
               }`}
             >
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan text-xs font-semibold uppercase tracking-wider">
-                <Sparkles className="w-3 h-3" />
+              <div className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-neon-cyan/15 border border-neon-cyan/40 text-neon-cyan text-xs font-bold uppercase tracking-wider shadow-sm">
+                <Sparkles className="w-3.5 h-3.5" />
                 <span>Answer</span>
               </div>
 
               <div className="my-auto py-4">
-                <p className="text-void-100 text-base sm:text-xl font-medium leading-relaxed max-w-lg">
+                <p className="text-white text-lg sm:text-2xl font-semibold leading-relaxed max-w-lg">
                   {card.back_text}
                 </p>
               </div>
 
-              <div className="text-void-400 text-xs flex items-center gap-1.5">
+              <div className="text-slate-300 text-xs flex items-center gap-1.5 font-medium">
                 <RotateCw className="w-3.5 h-3.5 text-neon-cyan" />
                 <span className="font-mono text-[11px]">Click / Tap to flip back</span>
               </div>

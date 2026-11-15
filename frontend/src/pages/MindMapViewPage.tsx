@@ -812,33 +812,36 @@ export default function MindMapViewPage() {
                 const isCollapsed = collapsedIds.has(node.id);
                 const hasChildren = node.childCount > 0;
 
-                // Depth-specific aesthetics
-                let bgGradient = "linear-gradient(135deg, rgba(27, 27, 36, 0.95), rgba(11, 11, 16, 0.95))";
-                let borderColor = isSelected ? "#22D3EE" : isPathActive ? "#A855F7" : "rgba(84, 84, 95, 0.5)";
-                let titleColor = "text-xs md:text-sm font-medium text-void-100";
+                // Depth-specific aesthetics with high-contrast bright styling
+                let bgGradient = "linear-gradient(135deg, rgba(38, 38, 54, 0.98), rgba(20, 20, 32, 0.98))";
+                let borderColor = isSelected ? "#22D3EE" : isPathActive ? "#A855F7" : "rgba(142, 142, 168, 0.6)";
+                let titleColor = "text-xs md:text-sm font-semibold text-white";
                 let depthBadge = `L${node.depth}`;
 
                 if (node.depth === 0) {
-                  bgGradient = "linear-gradient(135deg, #9333EA, #581C87)";
+                  bgGradient = "linear-gradient(135deg, #9333EA, #4F46E5)";
                   borderColor = "#F472B6";
                   titleColor = "text-sm md:text-base font-bold text-white";
                   depthBadge = "Core";
                 } else if (node.depth === 1) {
-                  bgGradient = "linear-gradient(135deg, rgba(34, 211, 238, 0.22), rgba(15, 23, 42, 0.96))";
-                  borderColor = isSelected ? "#22D3EE" : "rgba(34, 211, 238, 0.7)";
-                  titleColor = "text-xs md:text-sm font-semibold text-white";
+                  bgGradient = "linear-gradient(135deg, rgba(34, 211, 238, 0.35), rgba(20, 34, 56, 0.98))";
+                  borderColor = isSelected ? "#22D3EE" : "rgba(34, 211, 238, 0.85)";
+                  titleColor = "text-xs md:text-sm font-bold text-white";
                   depthBadge = "Pillar";
                 } else if (node.depth === 2) {
-                  bgGradient = "linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(15, 23, 42, 0.96))";
-                  borderColor = isSelected ? "#A855F7" : "rgba(168, 85, 247, 0.6)";
+                  bgGradient = "linear-gradient(135deg, rgba(168, 85, 247, 0.32), rgba(36, 22, 58, 0.98))";
+                  borderColor = isSelected ? "#A855F7" : "rgba(168, 85, 247, 0.8)";
+                  titleColor = "text-xs md:text-sm font-bold text-white";
                   depthBadge = "Branch";
                 } else if (node.depth === 3) {
-                  bgGradient = "linear-gradient(135deg, rgba(244, 114, 182, 0.18), rgba(15, 23, 42, 0.96))";
-                  borderColor = isSelected ? "#F472B6" : "rgba(244, 114, 182, 0.55)";
+                  bgGradient = "linear-gradient(135deg, rgba(244, 114, 182, 0.3), rgba(48, 22, 46, 0.98))";
+                  borderColor = isSelected ? "#F472B6" : "rgba(244, 114, 182, 0.75)";
+                  titleColor = "text-xs md:text-sm font-semibold text-white";
                   depthBadge = "Concept";
                 } else {
-                  bgGradient = "linear-gradient(135deg, rgba(163, 230, 53, 0.15), rgba(15, 23, 42, 0.96))";
-                  borderColor = isSelected ? "#A3E635" : "rgba(163, 230, 53, 0.5)";
+                  bgGradient = "linear-gradient(135deg, rgba(163, 230, 53, 0.28), rgba(24, 42, 28, 0.98))";
+                  borderColor = isSelected ? "#A3E635" : "rgba(163, 230, 53, 0.75)";
+                  titleColor = "text-xs md:text-sm font-semibold text-white";
                   depthBadge = `Detail`;
                 }
 
@@ -873,7 +876,7 @@ export default function MindMapViewPage() {
                           </span>
 
                           <div className="flex items-center gap-1.5 shrink-0">
-                            <span className="text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded-md bg-void-950/70 text-void-300 font-semibold border border-void-700/60">
+                            <span className="text-[9px] uppercase tracking-wider font-mono px-1.5 py-0.5 rounded-md bg-void-800 text-white font-bold border border-void-600">
                               {depthBadge}
                             </span>
                             {/* Interactive Touch-friendly Expand/Collapse Toggle */}
@@ -883,8 +886,8 @@ export default function MindMapViewPage() {
                                 onClick={(e) => toggleCollapse(node.id, e)}
                                 className={`min-w-[28px] min-h-[28px] px-2 py-0.5 rounded-full text-xs font-mono font-bold flex items-center justify-center gap-0.5 transition-all ${
                                   isCollapsed
-                                    ? "bg-neon-pink/20 text-neon-pink border border-neon-pink/40 shadow-glow-pink"
-                                    : "bg-void-700/80 text-void-300 hover:text-white hover:bg-void-600"
+                                    ? "bg-neon-pink/25 text-neon-pink border border-neon-pink/60 shadow-glow-pink"
+                                    : "bg-void-700 text-white hover:text-white hover:bg-void-600 border border-void-500"
                                 }`}
                                 title={isCollapsed ? `Expand ${node.childCount} sub-branches` : "Collapse sub-branches"}
                               >
@@ -896,7 +899,7 @@ export default function MindMapViewPage() {
                         </div>
 
                         {/* Concept short description */}
-                        <p className="text-[11px] text-void-300/80 truncate mt-1">
+                        <p className="text-[11px] text-slate-200 font-medium truncate mt-1">
                           {node.description}
                         </p>
                       </div>
@@ -986,14 +989,14 @@ export default function MindMapViewPage() {
             <div className="space-y-4">
               <div>
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-base font-semibold text-white leading-snug">
+                  <h3 className="text-base font-bold text-white leading-snug">
                     {selectedNode.name}
                   </h3>
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-void-800 text-void-300 font-mono shrink-0">
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-void-800 text-white font-mono font-bold border border-void-600 shrink-0">
                     L{selectedNode.depth}
                   </span>
                 </div>
-                <p className="text-xs text-void-200 leading-relaxed mt-2.5 bg-void-900/80 p-3.5 rounded-xl border border-void-700/60">
+                <p className="text-sm text-slate-100 leading-relaxed mt-2.5 bg-void-800/95 p-3.5 rounded-xl border border-void-600 shadow-md">
                   {selectedNode.description}
                 </p>
               </div>
@@ -1001,7 +1004,7 @@ export default function MindMapViewPage() {
               {/* Connected Sub-topics */}
               {selectedNode.childrenIds.length > 0 && (
                 <div>
-                  <p className="text-[11px] font-medium text-void-300 mb-2">
+                  <p className="text-xs font-semibold text-white mb-2">
                     Subconcepts ({selectedNode.childrenIds.length}):
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -1012,7 +1015,7 @@ export default function MindMapViewPage() {
                         <button
                           key={cId}
                           onClick={() => focusOnNode(cId)}
-                          className="text-xs px-2.5 py-1.5 rounded-xl bg-void-800/80 hover:bg-neon-cyan/20 border border-void-700 text-void-200 hover:text-neon-cyan transition-colors truncate max-w-[220px]"
+                          className="text-xs px-2.5 py-1.5 rounded-xl bg-void-800 hover:bg-neon-cyan/20 border border-void-600 text-slate-100 hover:text-neon-cyan transition-colors truncate max-w-[220px] font-medium"
                         >
                           {childNode.name}
                         </button>

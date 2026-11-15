@@ -43,3 +43,31 @@ def test_ai_error_response_credit_limit():
     status_code, msg = ai_error_response(exc, "generate notes")
     assert status_code == 402
     assert "credit limit reached" in msg
+
+
+def test_extract_json_with_nested_code_fences():
+    raw = """```json
+{
+  "title": "Python Basics",
+  "content": "Here is an example code block:\\n```python\\ndef hello():\\n    return 42\\n```\\nAnd that is all."
+}
+```"""
+    data = extract_json(raw)
+    assert data["title"] == "Python Basics"
+    assert "def hello():" in data["content"]
+
+
+def test_extract_notes_from_raw_text_fallbacks():
+    from app.services.note_service import _extract_notes_from_raw_text
+
+    # Case 1: unescaped internal double quotes
+    raw1 = '{"title": "Quantum Physics", "content": "The concept of "Entanglement" is key."}'
+    c1, t1 = _extract_notes_from_raw_text(raw1, "Physics")
+    assert t1 == "Quantum Physics"
+    assert "Entanglement" in c1
+
+    # Case 2: raw markdown output
+    raw2 = "# Biology Revision\n- Cell structure\n- DNA replication"
+    c2, t2 = _extract_notes_from_raw_text(raw2, "Biology")
+    assert t2 == "Biology Revision"
+    assert "Cell structure" in c2
