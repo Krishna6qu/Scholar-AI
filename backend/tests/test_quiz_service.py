@@ -17,7 +17,7 @@ def test_quiz_build_prompt():
     assert "Machine Learning Basics" in prompt
     assert "3 multiple-choice question(s)" in prompt
     assert "short, non-giveaway" in prompt
-    assert "EXACTLY 3 questions" in prompt
+    assert "GENERATE EXACTLY 3 QUESTIONS" in prompt
 
 
 def test_quiz_extract_json_markdown_fences():
@@ -78,3 +78,23 @@ Explanation: RAM loses its state when power is lost.
     assert "volatile" in extracted[1]["question_text"]
     assert extracted[1]["options"][1]["text"] == "RAM"
     assert extracted[1]["options"][1]["is_correct"] is True
+
+
+def test_quiz_synthesize_fallback_questions():
+    from app.services.quiz_service import _synthesize_fallback_questions
+
+    synthesized = _synthesize_fallback_questions(
+        topic="Operating Systems",
+        difficulty="medium",
+        default_qtype="mcq",
+        needed=8,
+        existing_count=2,
+        hints_enabled=True,
+    )
+    assert len(synthesized) == 8
+    for q in synthesized:
+        assert "Operating Systems" in q["question_text"]
+        assert len(q["options"]) >= 2
+        assert any(opt["is_correct"] for opt in q["options"])
+        assert q["explanation"] is not None
+        assert q["hint"] is not None

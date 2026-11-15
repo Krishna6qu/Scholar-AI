@@ -17,7 +17,9 @@ class RoadmapRepository:
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         result = await self.db.execute(
             select(func.count()).select_from(Roadmap).where(
-                Roadmap.owner_id == owner_id, Roadmap.created_at >= today_start
+                Roadmap.owner_id == owner_id,
+                Roadmap.created_at >= today_start,
+                Roadmap.deleted_at.is_(None),
             )
         )
         return result.scalar_one()

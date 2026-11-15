@@ -16,7 +16,9 @@ class MindMapRepository:
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         result = await self.db.execute(
             select(func.count()).select_from(MindMap).where(
-                MindMap.owner_id == owner_id, MindMap.created_at >= today_start
+                MindMap.owner_id == owner_id,
+                MindMap.created_at >= today_start,
+                MindMap.deleted_at.is_(None),
             )
         )
         return result.scalar_one()

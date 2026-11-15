@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlalchemy import select
@@ -158,9 +158,14 @@ async def update_my_settings(
 
 @router.get("/me/usage", response_model=UsageResponse)
 async def get_my_usage(
+    response: Response,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+
     quiz_used = await QuizRepository(db).count_today(current_user.id)
     flashcards_used = await FlashcardRepository(db).count_today(current_user.id)
     mindmap_used = await MindMapRepository(db).count_today(current_user.id)
@@ -179,13 +184,17 @@ async def get_my_usage(
     if note_used >= DAILY_LIMITS["note"]:
         reached.append("note")
 
+    now = datetime.now(timezone.utc)
+    tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    resets_in_hours = max(1, int(round((tomorrow - now).total_seconds() / 3600)))
+
     return UsageResponse(
         quiz=FeatureUsage(used=quiz_used, limit=DAILY_LIMITS["quiz"]),
         flashcards=FeatureUsage(used=flashcards_used, limit=DAILY_LIMITS["flashcards"]),
         mindmap=FeatureUsage(used=mindmap_used, limit=DAILY_LIMITS["mindmap"]),
         roadmap=FeatureUsage(used=roadmap_used, limit=DAILY_LIMITS["roadmap"]),
         note=FeatureUsage(used=note_used, limit=DAILY_LIMITS["note"]),
-        resets_in_hours=5,
+        resets_in_hours=resets_in_hours,
         any_limit_reached=len(reached) > 0,
         limit_reached_features=reached,
     )

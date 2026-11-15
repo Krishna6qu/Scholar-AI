@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
-import { ChevronLeft, ChevronRight, Sparkles, Lightbulb, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, Sparkles, Lightbulb, AlertTriangle, Zap } from "lucide-react";
 import { api } from "@/lib/api";
 import { DailyLimitModal } from "@/components/DailyLimitModal";
+import { useUsageStore } from "@/store/useUsageStore";
 
 type QType = "mcq" | "true_false" | "short_answer";
 type FullType = QType | "mix";
@@ -31,7 +32,10 @@ export default function QuizWizardPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showLimitModal, setShowLimitModal] = useState(false);
-  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
+  const usageData = useUsageStore((s) => s.usage);
+  const fetchUsage = useUsageStore((s) => s.fetchUsage);
+  const consumeEnergy = useUsageStore((s) => s.consumeEnergy);
+  const usage = usageData?.quiz ?? null;
 
   const [topic, setTopic] = useState(initialTopic);
 
@@ -42,12 +46,8 @@ export default function QuizWizardPage() {
   }, [initialTopic]);
 
   useEffect(() => {
-    api.get("/auth/me/usage")
-      .then(({ data }) => {
-        if (data?.quiz) setUsage(data.quiz);
-      })
-      .catch(() => {});
-  }, []);
+    fetchUsage();
+  }, [fetchUsage]);
 
   const [questionType, setQuestionType] = useState<FullType | null>(null);
   const [totalQuestions, setTotalQuestions] = useState(10);
@@ -114,6 +114,7 @@ export default function QuizWizardPage() {
         payload.mix_breakdown = Object.fromEntries(mixTypes.map((t) => [t, mixCounts[t] || 0]));
       }
       const { data } = await api.post("/quizzes/generate", payload);
+      consumeEnergy("quiz");
       navigate(`/study/quiz/${data.id}`);
     } catch (err: any) {
       if (err.response?.status === 429) {
@@ -177,9 +178,28 @@ export default function QuizWizardPage() {
             </div>
           )}
 
-          <p className="font-mono text-xs tracking-[0.3em] uppercase text-neon-cyan mb-2">
-            Step {step + 1} of {steps.length}
-          </p>
+          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <p className="font-mono text-xs tracking-[0.3em] uppercase text-neon-cyan">
+              Step {step + 1} of {steps.length}
+            </p>
+            {usage && (
+              <span
+                onClick={() => {
+                  if (usage.used >= usage.limit) setShowLimitModal(true);
+                }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono border ${
+                  usage.used >= usage.limit
+                    ? "bg-neon-pink/15 border-neon-pink/40 text-neon-pink font-bold cursor-pointer"
+                    : "bg-neon-violet/10 border-neon-violet/30 text-void-200"
+                }`}
+              >
+                <Zap className="w-3 h-3 text-neon-violet" />
+                <span>
+                  Energy: <strong className="text-white">{usage.used}/{usage.limit}</strong> Used
+                </span>
+              </span>
+            )}
+          </div>
           <h1 className="text-2xl text-white mb-6">{currentStep.title}</h1>
 
           {/* Step 0: Topic */}

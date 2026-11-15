@@ -17,9 +17,11 @@ import {
   ArrowRight,
   Sparkles,
   Trash2,
+  Zap,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { useUsageStore } from "@/store/useUsageStore";
 
 interface FlashcardDeck {
   id: string;
@@ -67,8 +69,11 @@ export default function StudyPackPage() {
   const [quizzes, setQuizzes] = useState<QuizItem[]>([]);
   const [notes, setNotes] = useState<NoteItem[]>([]);
   const [mindmaps, setMindmaps] = useState<MindMapItem[]>([]);
+  const usage = useUsageStore((s) => s.usage);
+  const fetchUsage = useUsageStore((s) => s.fetchUsage);
 
   useEffect(() => {
+    fetchUsage();
     setLoading(true);
     Promise.allSettled([
       api.get("/flashcards"),
@@ -276,6 +281,42 @@ export default function StudyPackPage() {
             </p>
           </div>
         </div>
+
+        {/* Daily Energy & Quotas Live Status */}
+        {usage && (() => {
+          const totalUsed = (usage.quiz?.used || 0) + (usage.flashcards?.used || 0) + (usage.note?.used || 0) + (usage.mindmap?.used || 0) + (usage.roadmap?.used || 0);
+          const totalLimit = (usage.quiz?.limit || 6) + (usage.flashcards?.limit || 6) + (usage.note?.limit || 6) + (usage.mindmap?.limit || 6) + (usage.roadmap?.limit || 6);
+          const energyRemaining = Math.max(0, totalLimit - totalUsed);
+
+          return (
+            <div className="mb-8 p-4 rounded-2xl bg-white/[0.03] border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs shadow-sm">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-neon-cyan/10 border border-neon-cyan/30 flex items-center justify-center">
+                  <Zap className="w-4 h-4 text-neon-cyan" />
+                </div>
+                <div>
+                  <span className="font-bold text-white">Daily Energy Capacity: </span>
+                  <span className="font-mono text-neon-cyan font-semibold">{energyRemaining} / {totalLimit}</span>
+                  <span className="text-void-400 text-[11px] ml-1.5">({usage.resets_in_hours || 5}h until reset)</span>
+                </div>
+              </div>
+              <div className="flex items-center flex-wrap gap-2 font-mono text-[11px] text-void-300">
+                <span className="px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/5">
+                  Quiz: <strong className="text-white">{usage.quiz?.used || 0}/{usage.quiz?.limit || 6}</strong>
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/5">
+                  Cards: <strong className="text-white">{usage.flashcards?.used || 0}/{usage.flashcards?.limit || 6}</strong>
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/5">
+                  Notes: <strong className="text-white">{usage.note?.used || 0}/{usage.note?.limit || 6}</strong>
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-white/[0.04] border border-white/5">
+                  Mind Map: <strong className="text-white">{usage.mindmap?.used || 0}/{usage.mindmap?.limit || 6}</strong>
+                </span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Top Creation Cards */}
         <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-10">

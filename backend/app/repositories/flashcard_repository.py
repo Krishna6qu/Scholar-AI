@@ -16,7 +16,9 @@ class FlashcardRepository:
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         result = await self.db.execute(
             select(func.count()).select_from(Flashcard).where(
-                Flashcard.owner_id == owner_id, Flashcard.created_at >= today_start
+                Flashcard.owner_id == owner_id,
+                Flashcard.created_at >= today_start,
+                Flashcard.deleted_at.is_(None),
             )
         )
         return result.scalar_one()

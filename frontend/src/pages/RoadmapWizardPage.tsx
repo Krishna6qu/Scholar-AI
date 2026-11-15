@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { Map, Sparkles, AlertTriangle } from "lucide-react";
+import { Map, Sparkles, AlertTriangle, Zap } from "lucide-react";
 import { api } from "@/lib/api";
 import { DailyLimitModal } from "@/components/DailyLimitModal";
+import { useUsageStore } from "@/store/useUsageStore";
 
 export default function RoadmapWizardPage() {
   const navigate = useNavigate();
@@ -10,15 +11,14 @@ export default function RoadmapWizardPage() {
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showLimitModal, setShowLimitModal] = useState(false);
-  const [usage, setUsage] = useState<{ used: number; limit: number } | null>(null);
+  const usageData = useUsageStore((s) => s.usage);
+  const fetchUsage = useUsageStore((s) => s.fetchUsage);
+  const consumeEnergy = useUsageStore((s) => s.consumeEnergy);
+  const usage = usageData?.roadmap ?? null;
 
   useEffect(() => {
-    api.get("/auth/me/usage")
-      .then(({ data }) => {
-        if (data?.roadmap) setUsage(data.roadmap);
-      })
-      .catch(() => {});
-  }, []);
+    fetchUsage();
+  }, [fetchUsage]);
 
   async function handleGenerate() {
     if (!topic.trim()) return;
@@ -31,6 +31,7 @@ export default function RoadmapWizardPage() {
     setError(null);
     try {
       const { data } = await api.post("/roadmaps", { topic });
+      consumeEnergy("roadmap");
       navigate(`/roadmap/${data.id}`);
     } catch (err: any) {
       if (err.response?.status === 429) {
@@ -69,7 +70,26 @@ export default function RoadmapWizardPage() {
             </div>
           )}
 
-          <Map className="w-6 h-6 text-neon-lime mb-4" />
+          <div className="flex items-center justify-between mb-4">
+            <Map className="w-6 h-6 text-neon-lime" />
+            {usage && (
+              <span
+                onClick={() => {
+                  if (usage.used >= usage.limit) setShowLimitModal(true);
+                }}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-mono border ${
+                  usage.used >= usage.limit
+                    ? "bg-neon-pink/15 border-neon-pink/40 text-neon-pink font-bold cursor-pointer"
+                    : "bg-void-900 border-white/10 text-void-300"
+                }`}
+              >
+                <Zap className="w-3 h-3 text-neon-lime" />
+                <span>
+                  Quota: <strong className="text-white">{usage.used}/{usage.limit}</strong> Used
+                </span>
+              </span>
+            )}
+          </div>
           <h1 className="text-2xl text-white mb-2">Generate a career roadmap</h1>
           <p className="text-void-300 text-sm mb-6">
             Tell ScholarAI what you want to become — get a detailed, step-by-step path from

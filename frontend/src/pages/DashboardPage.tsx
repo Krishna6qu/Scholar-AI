@@ -22,6 +22,7 @@ import {
   Compass,
 } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
+import { useUsageStore } from "@/store/useUsageStore";
 import { api } from "@/lib/api";
 import { TiltCard } from "@/components/TiltCard";
 import { StreakEnergyCore } from "@/components/StreakEnergyCore";
@@ -90,20 +91,6 @@ const QUICK_ACTIONS = [
   },
 ];
 
-interface FeatureUsage {
-  used: number;
-  limit: number;
-}
-interface Usage {
-  quiz: FeatureUsage;
-  flashcards: FeatureUsage;
-  mindmap: FeatureUsage;
-  roadmap: FeatureUsage;
-  note: FeatureUsage;
-  resets_in_hours?: number;
-  any_limit_reached?: boolean;
-  limit_reached_features?: string[];
-}
 const USAGE_META = [
   { key: "quiz" as const, label: "Quizzes", icon: Brain, accent: "text-neon-violet", bar: "from-neon-violet to-neon-violet" },
   { key: "flashcards" as const, label: "Flashcards", icon: Layers, accent: "text-neon-cyan", bar: "from-neon-cyan to-neon-cyan" },
@@ -150,9 +137,11 @@ export default function DashboardPage() {
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
 
-  const [usage, setUsage] = useState<Usage | null>(null);
-  const [usageError, setUsageError] = useState<string | null>(null);
-  const [usageLoading, setUsageLoading] = useState(false);
+  const usage = useUsageStore((s) => s.usage);
+  const usageLoading = useUsageStore((s) => s.loading);
+  const usageError = useUsageStore((s) => s.error);
+  const fetchUsage = useUsageStore((s) => s.fetchUsage);
+  const [justSynced, setJustSynced] = useState(false);
   const [limitModalInfo, setLimitModalInfo] = useState<{ open: boolean; feature?: string; used?: number; limit?: number } | null>(null);
 
   const [recentChats, setRecentChats] = useState<ChatSummary[]>([]);
@@ -165,17 +154,11 @@ export default function DashboardPage() {
   const [learningStatsLoading, setLearningStatsLoading] = useState(true);
 
   const loadUsage = useCallback(() => {
-    setUsageLoading(true);
-    setUsageError(null);
-    api
-      .get("/auth/me/usage")
-      .then(({ data }) => setUsage(data))
-      .catch((err) => {
-        console.error("Failed to load usage:", err);
-        setUsageError(err.response?.data?.detail ?? "Could not load usage — check the console.");
-      })
-      .finally(() => setUsageLoading(false));
-  }, []);
+    fetchUsage(true).then(() => {
+      setJustSynced(true);
+      setTimeout(() => setJustSynced(false), 2000);
+    });
+  }, [fetchUsage]);
 
   function loadStats() {
     setLearningStatsLoading(true);
@@ -475,11 +458,21 @@ export default function DashboardPage() {
                   loadActivity();
                   loadStats();
                 }}
-                className="flex items-center gap-1.5 text-xs text-void-400 hover:text-white transition-colors"
-                title="Refresh Metrics"
+                disabled={usageLoading}
+                className="flex items-center gap-1.5 text-xs text-void-400 hover:text-white transition-colors disabled:opacity-50"
+                title="Force refresh and sync all usage quotas"
               >
-                <RefreshCw className={`w-3 h-3 ${usageLoading ? "animate-spin" : ""}`} />
-                <span className="font-mono text-[11px]">Sync</span>
+                {justSynced ? (
+                  <>
+                    <CheckCircle2 className="w-3 h-3 text-neon-lime" />
+                    <span className="font-mono text-[11px] text-neon-lime font-bold">Synced</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className={`w-3 h-3 ${usageLoading ? "animate-spin text-neon-cyan" : ""}`} />
+                    <span className="font-mono text-[11px]">{usageLoading ? "Syncing…" : "Sync"}</span>
+                  </>
+                )}
               </button>
             </div>
 

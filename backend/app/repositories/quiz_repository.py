@@ -32,7 +32,11 @@ class QuizRepository:
     async def count_today(self, owner_id: uuid.UUID) -> int:
         today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
         result = await self.db.execute(
-            select(func.count()).select_from(Quiz).where(Quiz.owner_id == owner_id, Quiz.created_at >= today_start)
+            select(func.count()).select_from(Quiz).where(
+                Quiz.owner_id == owner_id,
+                Quiz.created_at >= today_start,
+                Quiz.deleted_at.is_(None),
+            )
         )
         return result.scalar_one()
 
