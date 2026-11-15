@@ -1,11 +1,9 @@
-import json
-import re
 import uuid
 
 from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.ai_utils import acompletion_with_retry, ai_error_response, resolve_api_key
+from app.core.ai_utils import acompletion_with_retry, ai_error_response, extract_json, resolve_api_key
 from app.core.config import settings
 from app.core.limits import DAILY_LIMITS
 from app.repositories.quiz_repository import QuizRepository
@@ -20,14 +18,6 @@ DIFFICULTY_GUIDANCE = {
         "would ask to test true mastery, including edge cases and 'why' questions, not just 'what'."
     ),
 }
-
-
-def _extract_json(raw: str) -> dict:
-    """Models sometimes wrap JSON in markdown code fences despite instructions
-    not to — strip those before parsing. strict=False tolerates literal
-    control characters (raw newlines) inside string values."""
-    cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
-    return json.loads(cleaned, strict=False)
 
 
 def _build_prompt(data: QuizGenerateRequest, breakdown: dict) -> str:
@@ -45,33 +35,53 @@ def _build_prompt(data: QuizGenerateRequest, breakdown: dict) -> str:
 
     return f"""You are a quiz-generation engine for a study app. Generate a quiz on the topic: "{data.topic}".
 
-Difficulty level: {data.difficulty} — {DIFFICULTY_GUIDANCE[data.difficulty]}
+Difficulty level: {data.difficulty} — {DIFFICULTY_GUIDANCE.get(data.difficulty, "Standard difficulty")}
 
 Generate exactly this breakdown of question types:
 {chr(10).join(type_lines)}
 
-Rules per type:
-- "mcq": provide exactly 4 options, exactly one marked "is_correct": true.
-- "true_false": provide exactly 2 options ("True" and "False"), exactly one marked "is_correct": true.
-- "short_answer": provide no options array; instead include "expected_answer" as a concise correct answer string.
+Rules per question type:
+1. "mcq": Exactly 4 options in an "options" list. Exactly ONE option must have "is_correct": true, and the other 3 must have "is_correct": false.
+2. "true_false": Exactly 2 options ("True" and "False") in an "options" list. Exactly ONE option must have "is_correct": true, and the other "is_correct": false.
+3. "short_answer": Do NOT provide an "options" list. Instead, include an "expected_answer" string representing the concise correct answer.
 
 {hint_instruction}
-Every question must include a brief "explanation" of why the answer is correct, shown to the student after they answer.
+Every question must include an "explanation" string detailing why the correct answer is right.
 
-Respond with ONLY valid JSON (no markdown code fences, no commentary), in exactly this shape:
+Respond with ONLY valid JSON (no markdown fences, no explanatory text outside the JSON), matching this JSON structure:
 {{
   "questions": [
     {{
-      "type": "mcq" | "true_false" | "short_answer",
-      "question_text": "...",
-      "hint": "..." | null,
-      "explanation": "...",
-      "options": [{{"text": "...", "is_correct": true|false}}, ...],
-      "expected_answer": "..."
+      "type": "mcq",
+      "question_text": "Sample multiple choice question text?",
+      "hint": "Helpful hint here or null",
+      "explanation": "Why this answer is correct.",
+      "options": [
+        {{"text": "Correct option", "is_correct": true}},
+        {{"text": "Incorrect option 1", "is_correct": false}},
+        {{"text": "Incorrect option 2", "is_correct": false}},
+        {{"text": "Incorrect option 3", "is_correct": false}}
+      ]
+    }},
+    {{
+      "type": "true_false",
+      "question_text": "Sample statement to evaluate as true or false?",
+      "hint": "Helpful hint here or null",
+      "explanation": "Explanation of true or false.",
+      "options": [
+        {{"text": "True", "is_correct": true}},
+        {{"text": "False", "is_correct": false}}
+      ]
+    }},
+    {{
+      "type": "short_answer",
+      "question_text": "Sample short answer question prompt?",
+      "hint": "Helpful hint here or null",
+      "explanation": "Explanation of concept.",
+      "expected_answer": "Concise Answer"
     }}
   ]
-}}
-Omit "options" for short_answer questions and omit "expected_answer" for mcq/true_false questions."""
+}}"""
 
 
 class QuizService:
@@ -96,18 +106,24 @@ class QuizService:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=resolve_api_key(model),
+                max_tokens=3000,
             )
-            parsed = _extract_json(response.choices[0].message.content)
-        except json.JSONDecodeError:
-            raise HTTPException(
-                status.HTTP_502_BAD_GATEWAY,
-                "The AI returned a response that couldn't be parsed as a quiz. Please try again.",
-            )
+            parsed = extract_json(response.choices[0].message.content)
         except Exception as e:
             status_code, message = ai_error_response(e, "generate the quiz")
             raise HTTPException(status_code, message)
 
-        questions = parsed.get("questions", [])
+        questions = []
+        if isinstance(parsed, list):
+            questions = parsed
+        elif isinstance(parsed, dict):
+            if isinstance(parsed.get("questions"), list):
+                questions = parsed["questions"]
+            elif isinstance(parsed.get("quiz"), dict) and isinstance(parsed["quiz"].get("questions"), list):
+                questions = parsed["quiz"]["questions"]
+            elif isinstance(parsed.get("items"), list):
+                questions = parsed["items"]
+
         if not questions:
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, "The AI did not return any questions. Please try again.")
 
@@ -121,19 +137,71 @@ class QuizService:
         )
 
         for order, q in enumerate(questions):
+            raw_type = str(q.get("type", "mcq")).lower().strip()
+            if "true" in raw_type or "false" in raw_type:
+                q_type = "true_false"
+            elif "short" in raw_type:
+                q_type = "short_answer"
+            else:
+                q_type = "mcq"
+
+            q_text = str(
+                q.get("question_text") or q.get("question") or q.get("prompt") or f"Question {order + 1}"
+            ).strip()
+            explanation = str(q.get("explanation") or "").strip() or None
+            hint = str(q.get("hint") or "").strip() if data.hints_enabled else None
+            if hint in ("None", "null", ""):
+                hint = None
+
             question = await self.repo.add_question(
                 quiz.id,
-                q["question_text"],
-                q.get("explanation"),
+                q_text,
+                explanation,
                 order,
-                q.get("hint") if data.hints_enabled else None,
-                q["type"],
+                hint,
+                q_type,
             )
-            if q["type"] in ("mcq", "true_false"):
-                for opt in q.get("options", []):
-                    await self.repo.add_option(question.id, opt["text"], bool(opt.get("is_correct")))
+
+            if q_type in ("mcq", "true_false"):
+                opts = q.get("options") or q.get("choices") or []
+                parsed_opts: list[tuple[str, bool]] = []
+                for opt in opts:
+                    if isinstance(opt, dict):
+                        text = str(opt.get("text") or opt.get("option") or opt.get("value") or "").strip()
+                        is_corr = bool(opt.get("is_correct") or opt.get("isCorrect") or opt.get("correct", False))
+                    else:
+                        text = str(opt).strip()
+                        is_corr = False
+                    if text:
+                        parsed_opts.append((text, is_corr))
+
+                # Handle true/false default if empty options returned
+                if q_type == "true_false" and not parsed_opts:
+                    expected = str(q.get("expected_answer") or q.get("answer") or "true").strip().lower()
+                    is_true = "t" in expected
+                    parsed_opts = [("True", is_true), ("False", not is_true)]
+
+                # Guarantee at least one option is marked correct
+                if not any(is_corr for _, is_corr in parsed_opts) and parsed_opts:
+                    ca = str(
+                        q.get("correct_answer") or q.get("answer") or q.get("expected_answer") or ""
+                    ).strip().lower()
+                    matched = False
+                    for idx, (otext, _) in enumerate(parsed_opts):
+                        if ca and (ca == otext.lower() or ca == chr(65 + idx).lower()):
+                            parsed_opts[idx] = (otext, True)
+                            matched = True
+                            break
+                    if not matched:
+                        parsed_opts[0] = (parsed_opts[0][0], True)
+
+                for text, is_corr in parsed_opts:
+                    await self.repo.add_option(question.id, text, is_corr)
             else:  # short_answer — store expected answer as the single "correct option"
-                await self.repo.add_option(question.id, q.get("expected_answer", ""), True)
+                expected = str(
+                    q.get("expected_answer") or q.get("answer") or q.get("correct_answer") or "Answer"
+                ).strip()
+                await self.repo.add_option(question.id, expected or "Answer", True)
 
         return quiz
 

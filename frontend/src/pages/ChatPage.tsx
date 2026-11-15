@@ -757,7 +757,7 @@ export default function ChatPage() {
                 </h2>
               </div>
               <p className="text-[11px] text-void-400 font-mono hidden sm:block">
-                Powered by Gemini 3.6 Flash
+                Powered by Gemini 2.5 Flash
               </p>
             </div>
           </div>

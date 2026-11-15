@@ -58,6 +58,7 @@ class FlashcardService:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=resolve_api_key(model),
+                max_tokens=3000,
             )
             parsed = extract_json(response.choices[0].message.content)
         except Exception as e:
