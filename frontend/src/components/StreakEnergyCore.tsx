@@ -71,15 +71,15 @@ export const StreakEnergyCore: React.FC<StreakEnergyCoreProps> = ({
   const dayNames = ["M", "T", "W", "T", "F", "S", "S"];
 
   return (
-    <div className="relative overflow-hidden rounded-3xl p-6 bg-gradient-to-br from-void-900/90 via-void-950/90 to-void-900/90 border border-white/[0.08] shadow-xl">
+    <div className="relative overflow-hidden rounded-3xl p-4 sm:p-6 bg-gradient-to-br from-void-900/90 via-void-950/90 to-void-900/90 border border-white/[0.08] shadow-xl">
       {/* Ambient background glow */}
       <div className="pointer-events-none absolute -right-10 -bottom-10 w-48 h-48 rounded-full bg-amber-500/10 blur-3xl" />
       <div className="pointer-events-none absolute -left-10 -top-10 w-44 h-44 rounded-full bg-neon-cyan/5 blur-3xl" />
 
-      <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+      <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-5 sm:gap-6">
         {/* Left: Concentric Gauge + Flame Core */}
-        <div className="flex items-center gap-5">
-          <div className="relative w-32 h-32 flex items-center justify-center shrink-0">
+        <div className="flex items-center gap-4 sm:gap-5 w-full md:w-auto">
+          <div className="relative w-28 h-28 sm:w-32 sm:h-32 flex items-center justify-center shrink-0">
             {/* SVG Ring Progress */}
             <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 120 120">
               <defs>

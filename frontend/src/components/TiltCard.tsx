@@ -32,18 +32,32 @@ export const TiltCard: React.FC<TiltCardProps> = ({
   const [transformStyle, setTransformStyle] = useState<string>("perspective(1000px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)");
   const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
 
-  useEffect(() => {
-    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    setPrefersReducedMotion(media.matches);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
 
-    const listener = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
-    media.addEventListener("change", listener);
-    return () => media.removeEventListener("change", listener);
+  useEffect(() => {
+    const motionMedia = window.matchMedia("(prefers-reduced-motion: reduce)");
+    setPrefersReducedMotion(motionMedia.matches);
+
+    // Detect touch-only / coarse pointer devices (smartphones, tablets)
+    const touchMedia = window.matchMedia("(pointer: coarse), (hover: none)");
+    setIsTouchDevice(touchMedia.matches);
+
+    const motionListener = (e: MediaQueryListEvent) => setPrefersReducedMotion(e.matches);
+    const touchListener = (e: MediaQueryListEvent) => setIsTouchDevice(e.matches);
+
+    motionMedia.addEventListener("change", motionListener);
+    touchMedia.addEventListener("change", touchListener);
+
+    return () => {
+      motionMedia.removeEventListener("change", motionListener);
+      touchMedia.removeEventListener("change", touchListener);
+    };
   }, []);
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
-      if (prefersReducedMotion || !enableTilt || !cardRef.current) return;
+      // Never compute tilt on touch screens or if reduced motion is requested
+      if (prefersReducedMotion || isTouchDevice || !enableTilt || !cardRef.current) return;
 
       const rect = cardRef.current.getBoundingClientRect();
       const clientX = e.clientX - rect.left;
@@ -65,7 +79,7 @@ export const TiltCard: React.FC<TiltCardProps> = ({
         setTransformStyle(`perspective(1000px) rotateX(${rotateX.toFixed(2)}deg) rotateY(${rotateY.toFixed(2)}deg) scale3d(1.01, 1.01, 1.01)`);
       });
     },
-    [maxTilt, enableTilt, prefersReducedMotion]
+    [maxTilt, enableTilt, prefersReducedMotion, isTouchDevice]
   );
 
   const handleMouseLeave = useCallback(() => {

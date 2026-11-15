@@ -219,9 +219,36 @@ export default function DashboardPage() {
   const lastActiveChat = recentChats[0];
 
   return (
-    <div className="min-h-screen bg-void-950/80 text-void-100">
-      <div className="flex">
-        {/* Modern Glass Sidebar */}
+    <div className="min-h-screen bg-void-950/80 text-void-100 flex flex-col">
+      {/* Mobile Top App Bar */}
+      <header className="md:hidden sticky top-0 z-30 px-4 py-3 bg-void-950/85 backdrop-blur-xl border-b border-white/[0.08] flex items-center justify-between">
+        <Link to="/" className="flex items-center gap-2 group">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-neon-violet to-neon-cyan flex items-center justify-center p-0.5 shadow-sm shadow-neon-violet/30">
+            <div className="w-full h-full bg-void-950 rounded-full flex items-center justify-center">
+              <Sparkles className="w-3.5 h-3.5 text-neon-cyan" />
+            </div>
+          </div>
+          <span className="font-display text-base tracking-tight text-white font-bold">
+            Scholar<span className="text-gradient-neon">AI</span>
+          </span>
+        </Link>
+
+        <div className="flex items-center gap-2">
+          <Link
+            to="/settings"
+            className="w-9 h-9 rounded-xl bg-white/[0.05] border border-white/10 flex items-center justify-center text-void-300 hover:text-white transition-colors"
+            title="Settings"
+          >
+            <Settings className="w-4 h-4" />
+          </Link>
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-neon-violet/30 to-neon-cyan/30 border border-white/20 flex items-center justify-center text-xs font-bold text-white uppercase">
+            {firstName[0]}
+          </div>
+        </div>
+      </header>
+
+      <div className="flex flex-1">
+        {/* Modern Glass Sidebar (Desktop) */}
         <aside className="hidden md:flex flex-col w-64 shrink-0 border-r border-white/[0.08] h-screen sticky top-0 px-5 py-6 bg-void-950/90 backdrop-blur-xl z-20">
           <Link to="/" className="flex items-center gap-2 group mb-10 px-2">
             <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neon-violet to-neon-cyan flex items-center justify-center p-0.5 shadow-sm shadow-neon-violet/30 group-hover:scale-105 transition-transform">
@@ -302,7 +329,7 @@ export default function DashboardPage() {
         </aside>
 
         {/* Main Content Area */}
-        <main className="relative flex-1 px-5 md:px-10 py-8 max-w-6xl overflow-hidden">
+        <main className="relative flex-1 px-4 sm:px-6 md:px-10 py-6 md:py-8 pb-28 md:pb-8 max-w-6xl overflow-hidden">
           {/* Subtle Ambient Background Lighting */}
           <div className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-neon-violet/[0.04] blur-3xl pointer-events-none" />
           <div className="absolute top-1/3 -left-32 w-96 h-96 rounded-full bg-neon-cyan/[0.04] blur-3xl pointer-events-none" />
@@ -698,6 +725,44 @@ export default function DashboardPage() {
           </div>
         </main>
       </div>
+
+      {/* Mobile Floating Bottom Navigation Dock */}
+      <nav className="md:hidden fixed bottom-3 inset-x-3 z-40 bg-void-900/90 backdrop-blur-2xl border border-white/10 rounded-2xl px-3 py-2 shadow-2xl flex items-center justify-around shadow-black/80">
+        <Link
+          to="/dashboard"
+          className="flex flex-col items-center gap-1 min-w-[56px] py-1 text-neon-cyan transition-all active:scale-95"
+        >
+          <div className="relative">
+            <LayoutDashboard className="w-5 h-5" />
+            <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-neon-cyan" />
+          </div>
+          <span className="text-[10px] font-medium font-mono">Home</span>
+        </Link>
+
+        <Link
+          to="/chat"
+          className="flex flex-col items-center gap-1 min-w-[56px] py-1 text-void-300 hover:text-white transition-all active:scale-95"
+        >
+          <MessageSquare className="w-5 h-5" />
+          <span className="text-[10px] font-medium font-mono">Chat</span>
+        </Link>
+
+        <Link
+          to="/study"
+          className="flex flex-col items-center gap-1 min-w-[56px] py-1 text-void-300 hover:text-white transition-all active:scale-95"
+        >
+          <Brain className="w-5 h-5" />
+          <span className="text-[10px] font-medium font-mono">Study</span>
+        </Link>
+
+        <Link
+          to="/roadmap/new"
+          className="flex flex-col items-center gap-1 min-w-[56px] py-1 text-void-300 hover:text-white transition-all active:scale-95"
+        >
+          <Map className="w-5 h-5" />
+          <span className="text-[10px] font-medium font-mono">Roadmap</span>
+        </Link>
+      </nav>
     </div>
   );
 }
