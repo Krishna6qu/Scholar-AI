@@ -1076,17 +1076,21 @@ export default function ChatPage() {
                 );
               })}
 
-              {/* Animated 3-dot Typing Indicator */}
+              {/* Animated Live Typing & Reasoning Indicator */}
               {sending && (
-                <div className="flex items-start gap-3">
-                  <div className="w-7 h-7 rounded-full bg-void-800 border border-void-600 flex items-center justify-center shrink-0">
-                    <Sparkles className="w-3.5 h-3.5 text-neon-cyan animate-pulse" />
+                <div className="flex items-start gap-3 animate-in fade-in duration-200">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-neon-violet/30 to-neon-cyan/30 border border-neon-cyan/40 flex items-center justify-center shrink-0 shadow-glow-cyan/20">
+                    <Sparkles className="w-4 h-4 text-neon-cyan animate-spin" style={{ animationDuration: "3s" }} />
                   </div>
-                  <div className="glass rounded-2xl px-4 py-3 flex items-center gap-1.5 shadow-md">
-                    <span className="w-2 h-2 rounded-full bg-neon-cyan animate-bounce" style={{ animationDelay: "0ms" }} />
-                    <span className="w-2 h-2 rounded-full bg-neon-violet animate-bounce" style={{ animationDelay: "150ms" }} />
-                    <span className="w-2 h-2 rounded-full bg-neon-pink animate-bounce" style={{ animationDelay: "300ms" }} />
-                    <span className="text-xs text-void-300 ml-2 font-mono">ScholarAI is thinking…</span>
+                  <div className="glass-modern rounded-2xl px-4 py-3 flex items-center gap-2.5 shadow-lg border border-white/[0.08]">
+                    <div className="flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-neon-cyan animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-2 h-2 rounded-full bg-neon-violet animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-2 h-2 rounded-full bg-neon-pink animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
+                    <span className="text-xs text-void-200 font-mono">
+                      ScholarAI is synthesizing your answer…
+                    </span>
                   </div>
                 </div>
               )}

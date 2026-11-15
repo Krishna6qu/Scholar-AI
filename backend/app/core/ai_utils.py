@@ -25,7 +25,7 @@ RETRYABLE_EXCEPTIONS = (
 
 
 def resolve_api_key(model: str) -> str | None:
-    if model.startswith("openrouter/") or "openai/gpt-5.6-luna" in model:
+    if model.startswith("openrouter/") or "luna" in model:
         return settings.OPENROUTER_API_KEY
     if model.startswith("gemini/") or model.startswith("vertex_ai/"):
         return settings.GEMINI_API_KEY
@@ -37,43 +37,50 @@ def resolve_api_key(model: str) -> str | None:
 
 
 async def acompletion_with_retry(
-    *, model: str, messages: list[dict], api_key: str | None, max_retries: int = 4, **kwargs
+    *, model: str, messages: list[dict], api_key: str | None, max_retries: int = 2, **kwargs
 ):
     """
-    Thin wrapper around litellm.acompletion that retries transient provider
-    errors (503 "model overloaded", rate limits, timeouts, connection blips)
-    with exponential backoff + jitter, instead of failing the user's request
-    on the first hiccup. Every AI generation call in the app should go
-    through this rather than calling litellm.acompletion directly — root
-    cause of intermittent "high demand" / 503 failures users would otherwise
-    see on every generation feature (chat, quiz, flashcards, notes, mind
-    maps, roadmaps), since none of them previously retried at all.
+    High-performance wrapper around litellm.acompletion with automatic model failover
+    and rapid transient retry. Retries transient errors with low latency (<= 2s)
+    and automatically falls back to secondary fast models if the primary provider blips.
     """
     if "max_tokens" not in kwargs:
-        kwargs["max_tokens"] = 3000
+        kwargs["max_tokens"] = 1500
 
-    api_key = api_key or resolve_api_key(model)
+    # Build prioritized candidate model chain
+    candidate_models = [model]
+    if model.startswith("openrouter/"):
+        for fallback in (
+            "openrouter/google/gemini-2.5-flash",
+            "openrouter/openai/gpt-4o-mini",
+            "openrouter/deepseek/deepseek-chat",
+        ):
+            if fallback not in candidate_models:
+                candidate_models.append(fallback)
+
     last_exc: Exception | None = None
-    for attempt in range(max_retries):
-        try:
-            return await litellm.acompletion(model=model, messages=messages, api_key=api_key, **kwargs)
-        except RETRYABLE_EXCEPTIONS as e:
-            last_exc = e
-            if attempt == max_retries - 1:
+    for current_model in candidate_models:
+        model_key = api_key or resolve_api_key(current_model)
+        for attempt in range(max_retries):
+            try:
+                return await litellm.acompletion(model=current_model, messages=messages, api_key=model_key, **kwargs)
+            except RETRYABLE_EXCEPTIONS as e:
+                last_exc = e
+                if attempt == max_retries - 1:
+                    logger.warning(f"AI model '{current_model}' exhausted retries: {e}. Trying fallback if available.")
+                    break
+
+                # Quick backoff capped at 2.0s max so user requests never hang
+                delay = min(0.8 + random.uniform(0.2, 0.6), 2.0)
+                logger.info(
+                    f"AI provider transient pause on '{current_model}' "
+                    f"(attempt {attempt + 1}/{max_retries}), retrying in {delay:.1f}s"
+                )
+                await asyncio.sleep(delay)
+            except Exception as e:
+                last_exc = e
+                logger.warning(f"AI provider failed on '{current_model}': {e}. Failing over to next model.")
                 break
-
-            # Check if provider explicitly requested a retry delay (e.g. Gemini 429 "Please retry in 14s")
-            retry_match = re.search(r"retry\s*(?:in|delay)?\s*[:\s]?\s*\"?(\d+(?:\.\d+)?)s?\"?", str(e), re.IGNORECASE)
-            if retry_match:
-                delay = min(float(retry_match.group(1)) + 2.0, 70.0)
-            else:
-                delay = min((2 ** attempt) + random.uniform(0.5, 1.5), 20.0)
-
-            logger.warning(
-                f"AI provider transient error on '{model}' "
-                f"(attempt {attempt + 1}/{max_retries}), retrying in {delay:.1f}s: {e}"
-            )
-            await asyncio.sleep(delay)
 
     assert last_exc is not None
     raise last_exc

@@ -145,6 +145,7 @@ class ChatService:
                 model=model,
                 messages=history,
                 api_key=api_key,
+                max_tokens=1500,
             )
             reply = response.choices[0].message.content
             usage = getattr(response, "usage", None)

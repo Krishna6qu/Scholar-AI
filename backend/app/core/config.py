@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str | None = None
     GEMINI_API_KEY: str | None = None
     OPENROUTER_API_KEY: str | None = None
-    DEFAULT_AI_MODEL: str = "openrouter/openai/gpt-5.6-luna"
+    DEFAULT_AI_MODEL: str = "openrouter/google/gemini-2.5-flash"
 
     # --- Email (Brevo) ---
     # If unset, verification/reset emails are skipped and just logged instead
