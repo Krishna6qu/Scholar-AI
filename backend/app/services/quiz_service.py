@@ -164,7 +164,7 @@ class QuizService:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=resolve_api_key(model),
-                max_tokens=5000,
+                max_tokens=2200,
             )
             parsed = extract_json(response.choices[0].message.content)
             questions = _extract_question_list(parsed)
@@ -181,7 +181,7 @@ class QuizService:
                     model=model,
                     messages=[{"role": "user", "content": followup_prompt}],
                     api_key=resolve_api_key(model),
-                    max_tokens=4000,
+                    max_tokens=1500,
                 )
                 followup_parsed = extract_json(followup_resp.choices[0].message.content)
                 more_questions = _extract_question_list(followup_parsed)

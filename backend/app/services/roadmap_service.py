@@ -87,7 +87,7 @@ class RoadmapService:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=resolve_api_key(model),
-                max_tokens=5000,
+                max_tokens=2200,
             )
             parsed = extract_json(response.choices[0].message.content)
         except Exception as e:

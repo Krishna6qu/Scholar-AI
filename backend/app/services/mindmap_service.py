@@ -17,48 +17,31 @@ def _build_prompt(data: MindMapGenerateRequest, file_context: str | None) -> str
         if file_context
         else ""
     )
-    return f"""You are an elite educational mind-map architect. Create an in-depth, \
-comprehensive, deeply structured mind map on: "{data.topic}".{context_block}
+    return f"""You are an educational mind-map architect. Create a clear, well-structured, comprehensive mind map on: "{data.topic}".{context_block}
 
-Requirements for Depth & Comprehensiveness:
-1. Deep Hierarchy: Structure as a multi-tier tree reaching 4 to 5 levels of depth:
-   - Level 1: Root Node (Central Theme / Subject)
-   - Level 2: 4-6 Core Thematic Pillars (Major Branches)
-   - Level 3: 3-5 Sub-disciplines or Sub-concepts per Pillar
-   - Level 4: 2-4 Concrete Principles, Mechanisms, or Components per Sub-concept
-   - Level 5 (where applicable): Key Formulas, Specific Real-World Examples, or Critical Nuances
-2. High-Yield Descriptions: Keep node "name" concise and impactful (2-5 words). For EVERY node, \
-provide a substantial "description" (2-3 detailed sentences explaining the core concept, its mechanism, \
-and why it matters, so students learn deeply upon clicking each node).
-3. Ensure all leaf nodes have "children": [].
+Structure:
+- Level 1: Root Node (Central Topic)
+- Level 2: 3 to 4 Core Thematic Pillars (Major Branches)
+- Level 3: 2 to 3 Key Concepts or Sub-topics per Pillar
+- Level 4 (optional): 1 to 2 Concrete Details, Principles, or Examples where helpful
+- For each node: keep "name" concise (2-5 words) and "description" informative (1 clear sentence explaining the concept).
+- Ensure all leaf nodes have "children": [].
 
 Respond with ONLY valid JSON (no markdown code fences, no commentary), in this exact format:
 {{
-  "title": "{data.topic.strip().title()} Deep Mind Map",
+  "title": "{data.topic.strip().title()} Mind Map",
   "root": {{
     "name": "Central Topic",
-    "description": "Comprehensive explanation of the overarching subject.",
+    "description": "Overview explanation of the overarching subject.",
     "children": [
       {{
         "name": "Core Pillar",
-        "description": "Detailed explanation of this foundational branch.",
+        "description": "Explanation of this foundational branch.",
         "children": [
           {{
-            "name": "Sub-Concept",
-            "description": "Deep dive into this specific area.",
-            "children": [
-              {{
-                "name": "Core Principle",
-                "description": "Specific mechanism, formula, or law.",
-                "children": [
-                  {{
-                    "name": "Concrete Example / Application",
-                    "description": "Real-world manifestation and practical takeaway.",
-                    "children": []
-                  }}
-                ]
-              }}
-            ]
+            "name": "Key Concept",
+            "description": "Specific focus area and explanation.",
+            "children": []
           }}
         ]
       }}
@@ -93,14 +76,14 @@ class MindMapService:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=resolve_api_key(model),
-                max_tokens=5000,
+                max_tokens=2200,
             )
             parsed = extract_json(response.choices[0].message.content)
         except Exception as e:
             status_code, message = ai_error_response(e, "generate the mind map")
             raise HTTPException(status_code, message)
 
-        root = parsed.get("root")
+        root = parsed.get("root") or (parsed if isinstance(parsed, dict) and ("name" in parsed or "children" in parsed) else None)
         if not root:
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, "The AI did not return a valid mind map. Please try again.")
 

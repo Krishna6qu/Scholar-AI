@@ -26,7 +26,9 @@ SYSTEM_PROMPT = (
     "You are ScholarAI, a friendly and knowledgeable AI study companion. "
     "Help the student understand concepts clearly, answer questions accurately, "
     "and encourage active learning. Keep answers focused and well structured, "
-    "using markdown (headings, lists, code blocks) where it aids clarity."
+    "using markdown (headings, lists, code blocks) where it aids clarity. "
+    "Always provide complete, comprehensive, and self-contained responses. "
+    "Conclude your answer naturally and never stop or cut off mid-sentence."
 )
 
 
@@ -145,7 +147,7 @@ class ChatService:
                 model=model,
                 messages=history,
                 api_key=api_key,
-                max_tokens=1500,
+                max_tokens=2500,
             )
             reply = response.choices[0].message.content
             usage = getattr(response, "usage", None)

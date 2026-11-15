@@ -40,12 +40,11 @@ async def acompletion_with_retry(
     *, model: str, messages: list[dict], api_key: str | None, max_retries: int = 2, **kwargs
 ):
     """
-    High-performance wrapper around litellm.acompletion with automatic model failover
-    and rapid transient retry. Retries transient errors with low latency (<= 2s)
-    and automatically falls back to secondary fast models if the primary provider blips.
+    High-performance wrapper around litellm.acompletion with automatic model failover,
+    rapid transient retry, and adaptive token limit recovery.
     """
     if "max_tokens" not in kwargs:
-        kwargs["max_tokens"] = 1500
+        kwargs["max_tokens"] = 2200
 
     # Build prioritized candidate model chain
     candidate_models = [model]
@@ -53,6 +52,7 @@ async def acompletion_with_retry(
         for fallback in (
             "openrouter/google/gemini-2.5-flash",
             "openrouter/openai/gpt-4o-mini",
+            "openrouter/meta-llama/llama-3.1-8b-instruct",
             "openrouter/deepseek/deepseek-chat",
         ):
             if fallback not in candidate_models:
@@ -79,11 +79,36 @@ async def acompletion_with_retry(
                 await asyncio.sleep(delay)
             except Exception as e:
                 last_exc = e
+                err_str = str(e)
+
+                # Intercept OpenRouter credit cap error and adapt max_tokens dynamically
+                if "fewer max_tokens" in err_str or "can only afford" in err_str or "402" in err_str:
+                    match = re.search(r"can only afford (\d+)", err_str)
+                    affordable = int(match.group(1)) - 100 if match else None
+                    current_max = kwargs.get("max_tokens", 2200)
+                    new_max = max(600, affordable if affordable else int(current_max * 0.6))
+                    logger.warning(
+                        f"OpenRouter credit cap hit. Automatically adapting max_tokens from {current_max} to {new_max} and retrying."
+                    )
+                    kwargs["max_tokens"] = new_max
+                    try:
+                        return await litellm.acompletion(
+                            model=current_model, messages=messages, api_key=model_key, **kwargs
+                        )
+                    except Exception as inner_e:
+                        last_exc = inner_e
+
                 logger.warning(f"AI provider failed on '{current_model}': {e}. Failing over to next model.")
                 break
 
     assert last_exc is not None
     raise last_exc
+
+
+def _sanitize_json_escapes(s: str) -> str:
+    """Escapes invalid backslashes (e.g. from LaTeX formulas, unescaped characters, or markdown)
+    so standard JSON parsers do not fail with JSONDecodeError: Invalid \\escape."""
+    return re.sub(r'\\(?!["\\/bfnrt]|u[0-9a-fA-F]{4})', r'\\\\', s)
 
 
 def _repair_json(text: str) -> dict | None:
@@ -128,51 +153,67 @@ def _repair_json(text: str) -> dict | None:
     try:
         return json.loads(repaired, strict=False)
     except Exception:
-        return None
+        # Also try sanitizing escapes on repaired string
+        sanitized = _sanitize_json_escapes(repaired)
+        try:
+            return json.loads(sanitized, strict=False)
+        except Exception:
+            return None
+
+
+def _safe_json_loads(text: str) -> dict | None:
+    """Multi-stage robust JSON decoder that handles raw text, invalid escapes, and truncation."""
+    try:
+        return json.loads(text, strict=False)
+    except Exception:
+        sanitized = _sanitize_json_escapes(text)
+        try:
+            return json.loads(sanitized, strict=False)
+        except Exception:
+            repaired = _repair_json(sanitized)
+            if repaired is not None:
+                return repaired
+            return None
 
 
 def extract_json(raw: str) -> dict:
     """Extract JSON from raw AI response, handling markdown code fences,
-    introductory/trailing text, unescaped control characters, and truncated tokens."""
+    introductory/trailing text, invalid backslash escapes (LaTeX/markdown),
+    unescaped control characters, and truncated tokens."""
     stripped = raw.strip()
     # 1. Try finding JSON inside markdown code fence
     fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", stripped)
     if fence_match:
-        content = fence_match.group(1).strip()
-        try:
-            return json.loads(content, strict=False)
-        except Exception:
-            repaired = _repair_json(content)
-            if repaired is not None:
-                return repaired
+        res = _safe_json_loads(fence_match.group(1).strip())
+        if res is not None:
+            return res
 
     # 2. Try finding outermost object or array
     brace_match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", stripped)
     if brace_match:
-        try:
-            return json.loads(brace_match.group(1).strip(), strict=False)
-        except Exception:
-            repaired = _repair_json(brace_match.group(1).strip())
-            if repaired is not None:
-                return repaired
+        res = _safe_json_loads(brace_match.group(1).strip())
+        if res is not None:
+            return res
 
     # 3. Direct parse with basic cleanup and repair fallback
     cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", stripped)
-    try:
-        return json.loads(cleaned, strict=False)
-    except Exception:
-        repaired = _repair_json(cleaned)
-        if repaired is not None:
-            return repaired
-        raise
+    res = _safe_json_loads(cleaned)
+    if res is not None:
+        return res
+
+    # Fallback to json.loads to raise original decode error if completely unparseable
+    return json.loads(cleaned, strict=False)
 
 
 def ai_error_response(e: Exception, what: str) -> tuple[int, str]:
-    """Builds a (status_code, message) pair for an AI-call failure, after
-    acompletion_with_retry has already exhausted its retries. Distinguishes
-    a genuinely transient failure (still 503 after 3 attempts — tell the
-    user it's worth trying again shortly) from a permanent one (bad request,
-    auth, etc. — retrying again won't help, so don't imply it will)."""
+    """Builds a (status_code, message) pair for an AI-call failure."""
+    err_str = str(e).lower()
+    if "402" in err_str or "credit" in err_str or "fewer max_tokens" in err_str:
+        return (
+            402,
+            "AI provider credit limit reached. Please visit https://openrouter.ai/settings/credits "
+            "to check your balance or add credits.",
+        )
     if isinstance(e, RETRYABLE_EXCEPTIONS):
         return (
             503,

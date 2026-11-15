@@ -58,14 +58,20 @@ class NoteService:
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=resolve_api_key(model),
-                max_tokens=3500,
+                max_tokens=2000,
             )
             parsed = extract_json(response.choices[0].message.content)
         except Exception as e:
             status_code, message = ai_error_response(e, "generate notes")
             raise HTTPException(status_code, message)
 
-        content = parsed.get("content")
+        content = (
+            parsed.get("content")
+            or parsed.get("notes")
+            or parsed.get("text")
+            or parsed.get("markdown")
+            or parsed.get("summary")
+        )
         if not content:
             raise HTTPException(status.HTTP_502_BAD_GATEWAY, "The AI did not return any notes. Please try again.")
 
