@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
 import { ChevronLeft, ChevronRight, Sparkles, Lightbulb } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -22,11 +22,21 @@ const DIFFICULTY_OPTIONS: { id: Difficulty; label: string; desc: string }[] = [
 
 export default function QuizWizardPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const initialTopic = ((location.state as any)?.topic || searchParams.get("topic") || "").trim();
+
   const [step, setStep] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [topic, setTopic] = useState("");
+  const [topic, setTopic] = useState(initialTopic);
+
+  useEffect(() => {
+    if (initialTopic) {
+      setTopic(initialTopic);
+    }
+  }, [initialTopic]);
   const [questionType, setQuestionType] = useState<FullType | null>(null);
   const [totalQuestions, setTotalQuestions] = useState(10);
   const [mixTypes, setMixTypes] = useState<QType[]>([]);
@@ -110,8 +120,12 @@ export default function QuizWizardPage() {
   const suggestedQuestions = Math.max(1, Math.round(timeLimit / 1.5));
 
   return (
-    <div className="min-h-screen bg-neon-glow flex items-center justify-center px-4 py-10">
-      <div className="w-full max-w-lg">
+    <div className="relative min-h-screen bg-void-950 flex items-center justify-center px-4 py-10 overflow-hidden selection:bg-neon-cyan selection:text-white">
+      {/* Ambient background glows */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[350px] bg-neon-violet/15 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[300px] bg-neon-cyan/10 blur-[100px] rounded-full pointer-events-none" />
+
+      <div className="relative w-full max-w-lg">
         <Link to="/study" className="font-display text-lg tracking-tight text-white mb-8 inline-block">
           Scholar<span className="text-gradient-neon">AI</span>
         </Link>
@@ -126,7 +140,7 @@ export default function QuizWizardPage() {
           ))}
         </div>
 
-        <div className="glass rounded-2xl p-7">
+        <div className="glass-modern rounded-3xl p-8 border border-white/[0.08] shadow-2xl relative">
           <p className="font-mono text-xs tracking-[0.3em] uppercase text-neon-cyan mb-2">
             Step {step + 1} of {steps.length}
           </p>
@@ -134,13 +148,27 @@ export default function QuizWizardPage() {
 
           {/* Step 0: Topic */}
           {step === 0 && (
-            <input
-              autoFocus
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="e.g. Photosynthesis, World War II, SQL Joins..."
-              className="w-full rounded-lg border border-void-600 bg-void-900 px-4 py-3 text-white placeholder-void-400 focus:outline-none focus:ring-2 focus:ring-neon-violet"
-            />
+            <div>
+              {initialTopic && (
+                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-neon-cyan/10 border border-neon-cyan/30 text-neon-cyan text-xs font-medium mb-4 shadow-sm shadow-neon-cyan/10">
+                  <Sparkles className="w-3.5 h-3.5 shrink-0 animate-pulse" />
+                  <span>Topic pre-filled from your AI Chat session — edit anytime or proceed.</span>
+                </div>
+              )}
+              <input
+                autoFocus
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && topic.trim()) {
+                    e.preventDefault();
+                    next();
+                  }
+                }}
+                placeholder="e.g. Photosynthesis, World War II, SQL Joins..."
+                className="w-full rounded-xl border border-white/[0.08] bg-void-900/90 px-4 py-3.5 text-white placeholder-void-500 focus:outline-none focus:ring-2 focus:ring-neon-cyan/50 focus:border-neon-cyan/60 transition-all"
+              />
+            </div>
           )}
 
           {/* Step 1: Question type */}

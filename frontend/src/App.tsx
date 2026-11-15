@@ -1,5 +1,5 @@
-import { Suspense, lazy } from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { Suspense, lazy, useEffect } from "react";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import ThreeDBackground from "@/components/ThreeDBackground";
 import FocusTimer from "@/components/FocusTimer";
@@ -32,11 +32,22 @@ function PageLoader() {
   );
 }
 
+function AppBackground() {
+  const location = useLocation();
+  const isDashboard = location.pathname.startsWith("/dashboard") || location.pathname.startsWith("/settings");
+  return <ThreeDBackground variant={isDashboard ? "dashboard" : "default"} />;
+}
+
 export default function App() {
+  useEffect(() => {
+    if (localStorage.getItem("scholarai_reduced_motion") === "true") {
+      document.documentElement.setAttribute("data-reduced-motion", "true");
+    }
+  }, []);
   return (
     <ErrorBoundary>
-      <ThreeDBackground />
       <BrowserRouter>
+        <AppBackground />
         <Suspense fallback={<PageLoader />}>
           <Routes>
             <Route path="/" element={<HomePage />} />

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -81,3 +81,9 @@ class ChatRepository:
     async def soft_delete(self, chat: Chat) -> None:
         chat.deleted_at = datetime.now(timezone.utc)
         await self.db.commit()
+
+    async def count_all(self, user_id: uuid.UUID) -> int:
+        result = await self.db.execute(
+            select(func.count()).select_from(Chat).where(Chat.user_id == user_id, Chat.deleted_at.is_(None))
+        )
+        return result.scalar_one()

@@ -26,6 +26,15 @@ from app.schemas.auth import LoginRequest, RegisterRequest, TokenResponse
 from app.services.email_service import send_otp_email
 
 
+def _parse_device_info(ua_string: str | None) -> tuple[str, str]:
+    if not ua_string:
+        return ("Desktop Device", "Web Browser")
+    ua = ua_string.lower()
+    browser = "Chrome" if "chrome" in ua else "Firefox" if "firefox" in ua else "Safari" if "safari" in ua else "Edge" if "edg" in ua else "Web Browser"
+    device = "Mobile Phone" if "mobile" in ua else "Tablet" if "tablet" in ua or "ipad" in ua else "Mac / PC"
+    return (device, browser)
+
+
 class AuthService:
     def __init__(self, db: AsyncSession):
         self.db = db
@@ -33,36 +42,45 @@ class AuthService:
         self.sessions = RefreshSessionRepository(db)
         self.pending = PendingRegistrationRepository(db)
 
-    async def register(self, data: RegisterRequest) -> str:
-        """Step 1 of signup: stash the submitted details as a pending
-        registration and email a 6-digit code. No `users` row is created
-        yet — that only happens once the code is verified."""
-        # Reject addresses whose domain has no mail servers at all (typos,
-        # made-up domains like "example.com") before we even try to send —
-        # this is a DNS MX lookup, not a full "does this inbox exist" check,
-        # but it's the strongest signal available without sending mail.
-        try:
-            validated = await asyncio.to_thread(validate_email, data.email, check_deliverability=True)
-        except EmailNotValidError as exc:
-            raise HTTPException(status.HTTP_400_BAD_REQUEST, f"Invalid email address: {exc}")
-        data.email = validated.normalized
+    async def register(
+        self, data: RegisterRequest, ip_address: str | None = None, user_agent: str | None = None
+    ) -> TokenResponse:
+        """Simple signup: validates details and creates the user account directly
+        without requiring email OTP verification. Immediately issues authentication tokens."""
+        email = str(data.email).strip().lower()
 
-        if await self.users.get_by_email(data.email):
+        if await self.users.get_by_email(email):
             raise HTTPException(status.HTTP_409_CONFLICT, "An account with this email already exists.")
 
-        code = generate_otp_code()
-        pending = PendingRegistration(
-            email=data.email,
-            full_name=data.full_name,
+        student_role = await self.users.get_role_by_name("Student")
+        if student_role is None:
+            roles = await self.users.list_roles()
+            role_id = roles[0].id if roles else None
+            if role_id is None:
+                raise HTTPException(
+                    status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    "Default role 'Student' not found — please run seed script.",
+                )
+        else:
+            role_id = student_role.id
+
+        display_name = (data.full_name or "").strip() or email.split("@")[0].capitalize()
+
+        user = User(
+            full_name=display_name,
+            email=email,
             username=data.username,
             password_hash=hash_password(data.password),
-            otp_code_hash=hash_otp(code),
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=OTP_EXPIRE_MINUTES),
+            role_id=role_id,
+            is_verified=True,
+            is_active=True,
         )
-        await self.pending.upsert(pending)
-        await send_otp_email(data.email, code)
+        user = await self.users.create(user)
 
-        return data.email
+        device, browser = _parse_device_info(user_agent)
+        return await self._issue_tokens(
+            user.id, ip_address=ip_address, user_agent=user_agent, device_name=device, browser=browser
+        )
 
     async def resend_otp(self, email: str) -> None:
         pending = await self.pending.get_by_email(email)
@@ -136,16 +154,23 @@ class AuthService:
 
         return await self._issue_tokens(user.id)
 
-    async def login(self, data: LoginRequest) -> TokenResponse:
+    async def login(
+        self, data: LoginRequest, ip_address: str | None = None, user_agent: str | None = None
+    ) -> TokenResponse:
         user = await self.users.get_by_email(data.email)
         if user is None or not verify_password(data.password, user.password_hash):
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Incorrect email or password.")
         if not user.is_active:
             raise HTTPException(status.HTTP_403_FORBIDDEN, "This account has been deactivated.")
 
-        return await self._issue_tokens(user.id)
+        device, browser = _parse_device_info(user_agent)
+        return await self._issue_tokens(
+            user.id, ip_address=ip_address, user_agent=user_agent, device_name=device, browser=browser
+        )
 
-    async def refresh(self, refresh_token: str) -> TokenResponse:
+    async def refresh(
+        self, refresh_token: str, ip_address: str | None = None, user_agent: str | None = None
+    ) -> TokenResponse:
         payload = decode_token(refresh_token)
         if payload is None or payload.get("type") != TokenType.refresh.value:
             raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid or expired refresh token.")
@@ -157,15 +182,33 @@ class AuthService:
         # Rotate: revoke the old session, issue a fresh pair. Prevents replay
         # of a stolen refresh token once it's been used once legitimately.
         await self.sessions.revoke(session)
-        return await self._issue_tokens(session.user_id)
+        device, browser = _parse_device_info(user_agent)
+        return await self._issue_tokens(
+            session.user_id, ip_address=ip_address, user_agent=user_agent, device_name=device, browser=browser
+        )
 
     async def logout(self, refresh_token: str) -> None:
         session = await self.sessions.get_active_by_token(refresh_token)
         if session:
             await self.sessions.revoke(session)
 
-    async def _issue_tokens(self, user_id: uuid.UUID) -> TokenResponse:
+    async def _issue_tokens(
+        self,
+        user_id: uuid.UUID,
+        ip_address: str | None = None,
+        user_agent: str | None = None,
+        device_name: str | None = None,
+        browser: str | None = None,
+    ) -> TokenResponse:
         access_token = create_token(user_id, TokenType.access)
         refresh_token = create_token(user_id, TokenType.refresh)
-        await self.sessions.create(user_id, refresh_token)
+        await self.sessions.create(
+            user_id=user_id,
+            refresh_token=refresh_token,
+            device_name=device_name,
+            browser=browser,
+            ip_address=ip_address,
+            user_agent=user_agent,
+        )
         return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+

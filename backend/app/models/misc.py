@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, SmallInteger, String, Text
 from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -20,6 +20,13 @@ class UserSettings(Base):
     temperature: Mapped[float] = mapped_column(Numeric(3, 2), default=0.7)
     language: Mapped[str] = mapped_column(String(20), default="en")
     notifications_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    study_mode: Mapped[str] = mapped_column(String(30), default="balanced")
+    default_quiz_difficulty: Mapped[str] = mapped_column(String(20), default="medium")
+    default_flashcard_count: Mapped[int] = mapped_column(SmallInteger, default=10)
+    audio_speed: Mapped[float] = mapped_column(Numeric(3, 2), default=1.0)
+    audio_voice: Mapped[str] = mapped_column(String(50), default="system")
+    data_retention_days: Mapped[int] = mapped_column(SmallInteger, default=0)
+    telemetry_opt_out: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class Notification(Base, UUIDPKMixin):

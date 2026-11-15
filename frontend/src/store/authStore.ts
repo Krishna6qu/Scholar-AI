@@ -9,6 +9,11 @@ export interface User {
   role_id: string;
   is_verified: boolean;
   is_active: boolean;
+  bio?: string | null;
+  college?: string | null;
+  course?: string | null;
+  semester?: number | null;
+  avatar_url?: string | null;
 }
 
 interface AuthState {

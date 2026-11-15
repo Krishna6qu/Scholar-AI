@@ -1,13 +1,23 @@
-import { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { FileText, Sparkles } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useNavigate, useLocation, useSearchParams, Link } from "react-router-dom";
+import { FileText, Sparkles, ChevronLeft } from "lucide-react";
 import { api } from "@/lib/api";
 
 export default function NoteWizardPage() {
   const navigate = useNavigate();
-  const [topic, setTopic] = useState("");
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const initialTopic = ((location.state as any)?.topic || searchParams.get("topic") || "").trim();
+
+  const [topic, setTopic] = useState(initialTopic);
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (initialTopic) {
+      setTopic(initialTopic);
+    }
+  }, [initialTopic]);
 
   async function handleGenerate() {
     if (!topic.trim()) return;
@@ -28,29 +38,50 @@ export default function NoteWizardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-void-950 bg-neon-glow flex items-center justify-center px-4">
-      <div className="w-full max-w-lg">
-        <Link to="/study" className="text-sm text-void-300 hover:text-white transition-colors mb-6 inline-block">
-          ← Back to Study Pack
+    <div className="relative min-h-screen bg-void-950 flex items-center justify-center px-4 py-12 overflow-hidden selection:bg-neon-violet selection:text-white">
+      {/* Ambient background glows */}
+      <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[550px] h-[350px] bg-neon-violet/15 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-1/4 right-1/4 w-[350px] h-[300px] bg-neon-cyan/10 blur-[100px] rounded-full pointer-events-none" />
+
+      <div className="relative w-full max-w-lg">
+        <Link
+          to="/study"
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-void-300 hover:text-white transition-colors mb-6 group"
+        >
+          <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+          <span>Back to Study Pack</span>
         </Link>
-        <div className="glass rounded-2xl p-8">
-          <FileText className="w-6 h-6 text-neon-cyan mb-4" />
-          <h1 className="text-2xl text-white mb-2">Generate revision notes</h1>
-          <p className="text-void-300 text-sm mb-6">
-            Dense, skimmable notes for last-minute revision — headings, bullets, and bolded key terms.
+
+        <div className="glass-modern rounded-3xl p-8 border border-white/[0.08] shadow-2xl relative">
+          <div className="w-10 h-10 rounded-xl bg-neon-violet/10 border border-neon-violet/30 flex items-center justify-center mb-4">
+            <FileText className="w-5 h-5 text-neon-violet" />
+          </div>
+
+          <h1 className="text-2xl font-bold text-white mb-2">Generate revision notes</h1>
+          <p className="text-void-300 text-sm mb-6 leading-relaxed">
+            Dense, skimmable notes structured for last-minute revision — with core definitions, formulas, and high-yield bullet points.
           </p>
 
-          <label className="block text-sm text-void-200 mb-1">Topic</label>
+          {initialTopic && (
+            <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-neon-violet/10 border border-neon-violet/30 text-neon-violet text-xs font-medium mb-5 shadow-sm shadow-neon-violet/10">
+              <Sparkles className="w-3.5 h-3.5 shrink-0 animate-pulse" />
+              <span>Topic pre-filled from your AI Chat session — edit anytime or proceed.</span>
+            </div>
+          )}
+
+          <label className="block text-xs font-semibold uppercase tracking-wider text-void-300 mb-2">
+            Revision Topic
+          </label>
           <textarea
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
             rows={3}
-            placeholder="e.g. Newton's three laws of motion with examples"
-            className="w-full rounded-lg border border-void-600 bg-void-900 px-3 py-2 text-white placeholder-void-400 focus:outline-none focus:ring-2 focus:ring-neon-cyan resize-none mb-6"
+            placeholder="e.g. Newton's three laws of motion with real-world examples"
+            className="w-full rounded-xl border border-white/[0.08] bg-void-900/90 px-4 py-3 text-sm text-white placeholder-void-500 focus:outline-none focus:ring-2 focus:ring-neon-violet/50 focus:border-neon-violet/60 resize-none mb-6 transition-all"
           />
 
           {error && (
-            <p className="text-sm text-neon-pink bg-neon-pink/10 border border-neon-pink/30 rounded-lg px-3 py-2 mb-4">
+            <p className="text-xs text-neon-pink bg-neon-pink/10 border border-neon-pink/30 rounded-xl px-3.5 py-2.5 mb-5 leading-relaxed">
               {error}
             </p>
           )}
@@ -58,10 +89,10 @@ export default function NoteWizardPage() {
           <button
             onClick={handleGenerate}
             disabled={!topic.trim() || generating}
-            className="w-full flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-neon-violet to-neon-cyan text-void-950 py-2.5 font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-neon-violet to-neon-cyan text-void-950 py-3 font-semibold hover:opacity-95 transition-all active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-neon-violet/20"
           >
             <Sparkles className="w-4 h-4" />
-            {generating ? "Generating…" : "Generate notes"}
+            {generating ? "Synthesizing notes…" : "Generate Revision Notes"}
           </button>
         </div>
       </div>

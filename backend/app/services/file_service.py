@@ -13,6 +13,26 @@ from app.repositories.file_repository import FileRepository
 SUPPORTED_TEXT_EXTENSIONS = {".txt", ".md", ".csv"}
 SUPPORTED_PDF_EXTENSIONS = {".pdf"}
 
+ALLOWED_FILE_EXTENSIONS = {
+    ".pdf", ".txt", ".md", ".csv",
+    ".docx", ".pptx", ".xlsx",
+    ".png", ".jpg", ".jpeg", ".webp"
+}
+
+DISALLOWED_EXTENSIONS = {
+    ".html", ".htm", ".svg", ".xml", ".exe", ".bat", ".cmd", ".sh",
+    ".php", ".phtml", ".js", ".mjs", ".py", ".vbs", ".msi", ".jar",
+    ".dll", ".scr", ".com", ".cpl"
+}
+
+
+def sanitize_filename(filename: str | None) -> str:
+    if not filename:
+        return "uploaded_file"
+    cleaned = filename.replace("\x00", "").replace("\r", "").replace("\n", "")
+    cleaned = Path(cleaned).name.strip()
+    return cleaned or "uploaded_file"
+
 
 def _extract_text(contents: bytes, extension: str) -> str | None:
     if extension in SUPPORTED_TEXT_EXTENSIONS:
@@ -45,14 +65,28 @@ class FileService:
                 f"File exceeds the {settings.MAX_UPLOAD_SIZE_MB}MB limit.",
             )
 
-        extension = Path(upload.filename or "").suffix.lower()
+        raw_filename = sanitize_filename(upload.filename)
+        extension = Path(raw_filename).suffix.lower()
+
+        if extension in DISALLOWED_EXTENSIONS or extension not in ALLOWED_FILE_EXTENSIONS:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                f"File type '{extension}' is not permitted. Allowed academic formats: PDF, TXT, MD, CSV, DOCX, PPTX, XLSX, and standard image formats.",
+            )
+
+        if chat_id is not None:
+            from app.repositories.chat_repository import ChatRepository
+            chat = await ChatRepository(self.db).get_chat(chat_id, owner_id)
+            if chat is None:
+                raise HTTPException(status.HTTP_404_NOT_FOUND, "Chat not found.")
+
         storage_key = await self.storage.save(contents, extension)
 
         file = await self.repo.create_file(
             owner_id=owner_id,
             chat_id=chat_id,
             file_name=Path(storage_key).name,
-            original_name=upload.filename or storage_key,
+            original_name=raw_filename,
             mime_type=upload.content_type or "application/octet-stream",
             file_extension=extension,
             file_size=len(contents),

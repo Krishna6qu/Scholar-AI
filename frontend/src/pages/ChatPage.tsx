@@ -27,11 +27,21 @@ import {
   GraduationCap,
   Lightbulb,
   Zap,
+  FileText,
+  Share2,
+  Link2,
+  Radio,
+  Youtube,
+  Globe,
+  ExternalLink,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { api } from "@/lib/api";
 import { useAuthStore } from "@/store/authStore";
+import { AudioSummaryPlayer } from "@/components/AudioSummaryPlayer";
+import { LinkIngestModal, LinkSummarizeResult } from "@/components/LinkIngestModal";
+
 
 interface ChatSummary {
   id: string;
@@ -97,6 +107,125 @@ const STARTER_PROMPTS = [
   },
 ];
 
+function deriveTopicForMessage(
+  messageIndex: number,
+  allMessages: Message[],
+  activeChatTitle?: string | null
+): string {
+  // 1. Search backward for the most relevant substantive user prompt
+  for (let i = messageIndex - 1; i >= 0; i--) {
+    if (allMessages[i].sender === "user") {
+      let raw = allMessages[i].content || "";
+
+      // Check if this message was an attached file or dropped link resource
+      const fileMatch = raw.match(/^\[\[file:[^|]+\|([^\]]+)\]\]\n?([\s\S]*)$/);
+      const sourceMatch = raw.match(/^\[\[source:[^|]+\|[^|]+\|([^\]]+)\]\]\n?([\s\S]*)$/);
+      let fileFallbackTopic = "";
+      if (fileMatch) {
+        fileFallbackTopic = fileMatch[1].replace(/\.[a-zA-Z0-9]+$/, "").replace(/[_-]+/g, " ").trim();
+        raw = fileMatch[2] ? fileMatch[2].trim() : "";
+      } else if (sourceMatch) {
+        fileFallbackTopic = sourceMatch[1].trim();
+        raw = sourceMatch[2] ? sourceMatch[2].trim() : "";
+      }
+
+      // If user only sent a file or source without extra text, use the sanitized title
+      if (!raw && fileFallbackTopic && fileFallbackTopic.length >= 3) {
+        return fileFallbackTopic.charAt(0).toUpperCase() + fileFallbackTopic.slice(1);
+      }
+
+      // Strip mode prefixes like [Mode: ...]
+      raw = raw.replace(/^\[Mode:[^\]]+\]\s*/i, "").trim();
+
+      // Repeatedly strip common conversational fluff and inquiry prefixes
+      let cleanedPrompt = raw;
+      let prev = "";
+      while (cleanedPrompt !== prev) {
+        prev = cleanedPrompt;
+        cleanedPrompt = cleanedPrompt
+          .replace(
+            /^(can you|could you|would you|please|kindly|tell me about|tell me|explain to me|explain|what is|what are|what was|what were|who is|who was|how does|how do|how is|how can|how to|describe|help me understand|give me|write about|write a quiz on|write a summary of|study|summary of|overview of|teach me|i want to learn about|i need to understand|i'd like to understand|make flashcards on|create flashcards on|make a quiz on|generate flashcards on|generate a quiz on|quiz me on)\s+/i,
+            ""
+          )
+          .trim();
+      }
+
+      // Remove trailing punctuation and question marks
+      cleanedPrompt = cleanedPrompt.replace(/[?!.:;]+$/, "").trim();
+
+      // Remove trailing "works" or "work" (e.g. from "how neural networks work")
+      cleanedPrompt = cleanedPrompt.replace(/\s+(works?)$/i, "").trim();
+
+      // If the prompt is substantive (>= 3 chars and not just conversational filler like "ok", "yes", "thanks")
+      if (
+        cleanedPrompt.length >= 3 &&
+        !/^(ok|okay|yes|yeah|sure|thanks|thank you|cool|got it|next|no|nope)$/i.test(cleanedPrompt)
+      ) {
+        // Truncate cleanly at word boundary rather than cutting a word in half
+        if (cleanedPrompt.length > 65) {
+          const slice = cleanedPrompt.slice(0, 65);
+          const lastSpace = slice.lastIndexOf(" ");
+          cleanedPrompt = lastSpace > 30 ? slice.slice(0, lastSpace) : slice;
+        }
+        return cleanedPrompt.charAt(0).toUpperCase() + cleanedPrompt.slice(1);
+      }
+
+      // If this message was just a file with a name, fallback to that file name
+      if (fileFallbackTopic && fileFallbackTopic.length >= 3) {
+        return fileFallbackTopic.charAt(0).toUpperCase() + fileFallbackTopic.slice(1);
+      }
+
+      // If prompt was too short/conversational ("ok", "yes"), continue searching earlier user messages
+    }
+  }
+
+  // 2. Use active chat title if specific and meaningful
+  if (activeChatTitle && !/^(new chat|ai study partner|untitled|chat)/i.test(activeChatTitle.trim())) {
+    return activeChatTitle.trim();
+  }
+
+  // 3. Extract top heading from assistant message
+  const msgContent = allMessages[messageIndex]?.content || "";
+  const headingMatch = msgContent.match(/^#{1,3}\s+([^\n]+)/m);
+  if (headingMatch && headingMatch[1].trim().length > 3) {
+    const headingClean = headingMatch[1]
+      .replace(/^[0-9]+[.)]\s*/, "") // Strip leading "1." or "1)"
+      .replace(/[*_`]/g, "")
+      .trim();
+    if (headingClean.length > 3 && !/^(introduction|overview|summary|key points?|notes?)$/i.test(headingClean)) {
+      return headingClean.slice(0, 60);
+    }
+  }
+
+  // 4. Extract meaningful bold phrase from assistant message (excluding generic label headings)
+  const boldMatches = msgContent.matchAll(/\*\*([^*]+)\*\*/g);
+  for (const b of boldMatches) {
+    const phrase = b[1].replace(/[:;]$/, "").trim();
+    if (
+      phrase.length >= 3 &&
+      phrase.length <= 50 &&
+      !/^(note|important|summary|overview|key points?|definition|warning|tip|step \d+|example)$/i.test(phrase)
+    ) {
+      return phrase;
+    }
+  }
+
+  // 5. Fallback: first non-empty line
+  const firstLine = msgContent.split("\n").find((l) => l.trim().length > 0) || "";
+  const cleanedLine = firstLine
+    .replace(/^[#\-*>\d.]+\s*/, "")
+    .replace(/[*_`]/g, "")
+    .replace(/^(here is|here are|sure|certainly|below is|let's discuss)[^:]*:\s*/i, "")
+    .trim();
+  if (cleanedLine.length >= 4) {
+    const slice = cleanedLine.length > 50 ? cleanedLine.slice(0, 50) : cleanedLine;
+    const lastSpace = slice.lastIndexOf(" ");
+    return (lastSpace > 25 ? slice.slice(0, lastSpace) : slice).trim();
+  }
+
+  return "Key Concepts";
+}
+
 export default function ChatPage() {
   const navigate = useNavigate();
   const { chatId } = useParams<{ chatId?: string }>();
@@ -117,6 +246,16 @@ export default function ChatPage() {
   // Inline rename state
   const [editingChatId, setEditingChatId] = useState<string | null>(null);
   const [editTitleDraft, setEditTitleDraft] = useState("");
+
+  // Link / Video Ingestion Modal state
+  const [isLinkModalOpen, setIsLinkModalOpen] = useState(false);
+  const [modalInitialUrl, setModalInitialUrl] = useState("");
+
+  // Detect URL in draft
+  const detectedUrl = useMemo(() => {
+    const match = draft.match(/https?:\/\/[^\s]+/i);
+    return match ? match[0] : null;
+  }, [draft]);
 
   // File preview modal
   const [viewingFile, setViewingFile] = useState<{ id: string; name: string; content: string | null } | null>(null);
@@ -195,6 +334,27 @@ export default function ChatPage() {
     if (!match) return null;
     return { fileId: match[1], fileName: match[2], rest: match[3] };
   }
+
+  function parseSourceMarker(content: string): { sourceType: string; url: string; title: string; rest: string } | null {
+    const match = content.match(/^\[\[source:([^|]+)\|([^|]+)\|([^\]]+)\]\]\n?([\s\S]*)$/);
+    if (!match) return null;
+    return { sourceType: match[1], url: match[2], title: match[3], rest: match[4] };
+  }
+
+  function extractAudioScript(content: string): { cleanContent: string; audioScript: string | null } {
+    const match = content.match(/\[\[audio_script:\s*([\s\S]*?)\s*\]\]/i);
+    if (!match) return { cleanContent: content, audioScript: null };
+    const cleanContent = content.replace(/\[\[audio_script:\s*[\s\S]*?\s*\]\]/gi, "").trim();
+    return { cleanContent, audioScript: match[1].trim() };
+  }
+
+  const handleLinkIngestSuccess = (result: LinkSummarizeResult) => {
+    if (result.chat_id !== chatId) {
+      navigate(`/chat/${result.chat_id}`);
+    }
+    setMessages((prev) => [...prev, result.user_message, result.assistant_message]);
+    refreshChatList();
+  };
 
   async function handleOpenFile(fileId: string, fileName: string) {
     setViewingFile({ id: fileId, name: fileName, content: null });
@@ -685,9 +845,14 @@ export default function ChatPage() {
             </div>
           ) : (
             <div className="max-w-3xl mx-auto space-y-6">
-              {messages.map((m) => {
+              {messages.map((m, idx) => {
                 const fileInfo = m.sender === "user" ? parseFileMarker(m.content) : null;
-                const displayText = fileInfo ? fileInfo.rest : m.content;
+                const sourceInfo = m.sender === "user" ? parseSourceMarker(m.content) : null;
+                const rawText = fileInfo ? fileInfo.rest : sourceInfo ? sourceInfo.rest : m.content;
+                const { cleanContent, audioScript } = m.sender === "assistant" ? extractAudioScript(rawText) : { cleanContent: rawText, audioScript: null };
+                const displayText = cleanContent;
+                const activeChat = chats.find((c) => c.id === chatId);
+                const messageTopic = m.sender === "assistant" ? deriveTopicForMessage(idx, messages, activeChat?.title) : "";
 
                 return (
                   <div
@@ -703,6 +868,26 @@ export default function ChatPage() {
                         <Paperclip className="w-3.5 h-3.5 text-neon-cyan shrink-0" />
                         <span className="truncate text-void-100 font-medium">{fileInfo.fileName}</span>
                       </button>
+                    )}
+
+                    {/* Dropped resource link card preview */}
+                    {sourceInfo && (
+                      <a
+                        href={sourceInfo.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-2.5 mb-1.5 text-xs bg-void-800 border border-void-600 rounded-xl px-3 py-2 hover:border-neon-cyan transition-colors max-w-[85%] group"
+                      >
+                        {sourceInfo.sourceType === "youtube" ? (
+                          <Youtube className="w-4 h-4 text-rose-400 shrink-0" />
+                        ) : sourceInfo.sourceType === "pdf" ? (
+                          <FileText className="w-4 h-4 text-neon-pink shrink-0" />
+                        ) : (
+                          <Globe className="w-4 h-4 text-neon-cyan shrink-0" />
+                        )}
+                        <span className="truncate text-void-100 font-medium">{sourceInfo.title}</span>
+                        <ExternalLink className="w-3 h-3 text-void-400 group-hover:text-neon-cyan shrink-0 ml-1" />
+                      </a>
                     )}
 
                     {/* Message Bubble */}
@@ -771,63 +956,120 @@ export default function ChatPage() {
 
                     {/* Assistant Message Quick Actions */}
                     {m.sender === "assistant" && (
-                      <div className="flex items-center gap-1.5 mt-2 px-1 text-xs text-void-400">
-                        <button
-                          onClick={() => handleCopy(m.id, m.content)}
-                          title="Copy answer"
-                          className="flex items-center gap-1 p-1.5 rounded-lg hover:text-white hover:bg-void-800 transition-colors"
-                        >
-                          {copiedId === m.id ? (
-                            <Check className="w-3.5 h-3.5 text-neon-lime" />
-                          ) : (
-                            <Copy className="w-3.5 h-3.5" />
-                          )}
-                        </button>
+                      <div className="mt-2.5 max-w-[88%] md:max-w-[80%] space-y-2">
+                        {/* Upper row: Copy & Feedback */}
+                        <div className="flex items-center gap-1.5 px-1 text-xs text-void-400">
+                          <button
+                            onClick={() => handleCopy(m.id, m.content)}
+                            title="Copy answer"
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg hover:text-white hover:bg-void-800 transition-colors"
+                          >
+                            {copiedId === m.id ? (
+                              <>
+                                <Check className="w-3.5 h-3.5 text-neon-lime" />
+                                <span className="text-[11px] text-neon-lime">Copied</span>
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="w-3.5 h-3.5" />
+                                <span className="text-[11px]">Copy</span>
+                              </>
+                            )}
+                          </button>
 
-                        <button
-                          onClick={() => handleFeedback(m.id, "like")}
-                          title="Helpful response"
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            m.feedback === "like"
-                              ? "text-neon-lime bg-void-800"
-                              : "hover:text-white hover:bg-void-800"
-                          }`}
-                        >
-                          <ThumbsUp className="w-3.5 h-3.5" />
-                        </button>
+                          <button
+                            onClick={() => handleFeedback(m.id, "like")}
+                            title="Helpful response"
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              m.feedback === "like"
+                                ? "text-neon-lime bg-void-800"
+                                : "hover:text-white hover:bg-void-800"
+                            }`}
+                          >
+                            <ThumbsUp className="w-3.5 h-3.5" />
+                          </button>
 
-                        <button
-                          onClick={() => handleFeedback(m.id, "dislike")}
-                          title="Unhelpful response"
-                          className={`p-1.5 rounded-lg transition-colors ${
-                            m.feedback === "dislike"
-                              ? "text-neon-pink bg-void-800"
-                              : "hover:text-white hover:bg-void-800"
-                          }`}
-                        >
-                          <ThumbsDown className="w-3.5 h-3.5" />
-                        </button>
+                          <button
+                            onClick={() => handleFeedback(m.id, "dislike")}
+                            title="Unhelpful response"
+                            className={`p-1.5 rounded-lg transition-colors ${
+                              m.feedback === "dislike"
+                                ? "text-neon-pink bg-void-800"
+                                : "hover:text-white hover:bg-void-800"
+                            }`}
+                          >
+                            <ThumbsDown className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
 
-                        <span className="w-px h-3 bg-void-700 mx-1" />
+                        {/* Interactive Audio Summary Player if audio overview script is available */}
+                        {audioScript && (
+                          <AudioSummaryPlayer
+                            scriptText={audioScript}
+                            sourceTitle={messageTopic || "Resource Summary"}
+                            className="my-3"
+                          />
+                        )}
 
-                        {/* One-click study conversions */}
-                        <button
-                          onClick={() => navigate("/study/flashcards/new")}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-void-900 border border-void-700 hover:border-neon-pink text-void-300 hover:text-white transition-colors"
-                          title="Create flashcards from this topic"
-                        >
-                          <Layers className="w-3 h-3 text-neon-pink" />
-                          <span>Make Flashcards</span>
-                        </button>
+                        {/* Dedicated Study Tools Conversion Shelf */}
+                        <div className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-void-900/90 border border-white/[0.08] backdrop-blur-xl shadow-lg">
+                          <span className="text-[11px] font-semibold text-void-300 flex items-center gap-1.5 px-1.5">
+                            <Sparkles className="w-3 h-3 text-neon-cyan animate-pulse" />
+                            Study this:
+                          </span>
 
-                        <button
-                          onClick={() => navigate("/study/quiz")}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-void-900 border border-void-700 hover:border-neon-cyan text-void-300 hover:text-white transition-colors"
-                          title="Generate a quiz on this topic"
-                        >
-                          <Brain className="w-3 h-3 text-neon-cyan" />
-                          <span>Quiz Me</span>
-                        </button>
+                          <button
+                            onClick={() =>
+                              navigate(`/study/quiz?topic=${encodeURIComponent(messageTopic)}`, {
+                                state: { topic: messageTopic, sourceChatId: chatId },
+                              })
+                            }
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-void-800/90 hover:bg-void-700 border border-white/[0.08] hover:border-neon-cyan/60 text-void-200 hover:text-white text-xs font-medium transition-all active:scale-[0.98] shadow-sm hover:shadow-neon-cyan/20"
+                            title={`Generate quiz on: ${messageTopic}`}
+                          >
+                            <Brain className="w-3.5 h-3.5 text-neon-cyan" />
+                            <span>Quiz</span>
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              navigate(`/study/flashcards/new?topic=${encodeURIComponent(messageTopic)}`, {
+                                state: { topic: messageTopic, sourceChatId: chatId },
+                              })
+                            }
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-void-800/90 hover:bg-void-700 border border-white/[0.08] hover:border-neon-pink/60 text-void-200 hover:text-white text-xs font-medium transition-all active:scale-[0.98] shadow-sm hover:shadow-neon-pink/20"
+                            title={`Create flashcards on: ${messageTopic}`}
+                          >
+                            <Layers className="w-3.5 h-3.5 text-neon-pink" />
+                            <span>Flashcards</span>
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              navigate(`/study/notes/new?topic=${encodeURIComponent(messageTopic)}`, {
+                                state: { topic: messageTopic, sourceChatId: chatId },
+                              })
+                            }
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-void-800/90 hover:bg-void-700 border border-white/[0.08] hover:border-neon-violet/60 text-void-200 hover:text-white text-xs font-medium transition-all active:scale-[0.98] shadow-sm hover:shadow-neon-violet/20"
+                            title={`Generate revision notes on: ${messageTopic}`}
+                          >
+                            <FileText className="w-3.5 h-3.5 text-neon-violet" />
+                            <span>Notes</span>
+                          </button>
+
+                          <button
+                            onClick={() =>
+                              navigate(`/study/mindmap/new?topic=${encodeURIComponent(messageTopic)}`, {
+                                state: { topic: messageTopic, sourceChatId: chatId },
+                              })
+                            }
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-void-800/90 hover:bg-void-700 border border-white/[0.08] hover:border-neon-lime/60 text-void-200 hover:text-white text-xs font-medium transition-all active:scale-[0.98] shadow-sm hover:shadow-neon-lime/20"
+                            title={`Generate mind map on: ${messageTopic}`}
+                          >
+                            <Share2 className="w-3.5 h-3.5 text-neon-lime" />
+                            <span>Mind Map</span>
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -873,6 +1115,29 @@ export default function ChatPage() {
               </div>
             )}
 
+            {/* Detected Link Banner */}
+            {detectedUrl && (
+              <div className="flex items-center justify-between gap-2 mb-2.5 px-3.5 py-2 rounded-2xl bg-neon-cyan/[0.08] border border-neon-cyan/30 text-xs shadow-sm">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Sparkles className="w-3.5 h-3.5 text-neon-cyan animate-pulse shrink-0" />
+                  <span className="text-void-200 truncate">
+                    Link detected: <span className="text-white font-mono">{detectedUrl}</span>
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setModalInitialUrl(detectedUrl);
+                    setIsLinkModalOpen(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-gradient-to-r from-neon-violet to-neon-cyan text-void-950 font-bold text-[11px] hover:opacity-95 shadow-glow-violet shrink-0 transition-opacity"
+                >
+                  <Radio className="w-3 h-3" />
+                  <span>Summarize &amp; Audio</span>
+                </button>
+              </div>
+            )}
+
             <div className="relative flex items-end gap-2 bg-void-900 border border-void-600 rounded-2xl p-2 focus-within:ring-2 focus-within:ring-neon-cyan focus-within:border-transparent transition-all">
               <input
                 type="file"
@@ -889,6 +1154,18 @@ export default function ChatPage() {
                 className="p-2.5 rounded-xl text-void-400 hover:text-white hover:bg-void-800 transition-colors shrink-0 mb-0.5"
               >
                 <Paperclip className="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setModalInitialUrl(detectedUrl || "");
+                  setIsLinkModalOpen(true);
+                }}
+                title="Drop video or resource link (YouTube, Web, PDF)"
+                className="p-2.5 rounded-xl text-void-400 hover:text-neon-cyan hover:bg-void-800 transition-colors shrink-0 mb-0.5"
+              >
+                <Link2 className="w-4 h-4" />
               </button>
 
               <textarea
@@ -956,6 +1233,16 @@ export default function ChatPage() {
           </div>
         </div>
       )}
+
+      {/* Link / Video Ingest Modal */}
+      <LinkIngestModal
+        isOpen={isLinkModalOpen}
+        onClose={() => setIsLinkModalOpen(false)}
+        activeChatId={chatId}
+        initialUrl={modalInitialUrl}
+        onSuccess={handleLinkIngestSuccess}
+      />
     </div>
   );
 }
+

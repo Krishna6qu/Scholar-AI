@@ -36,6 +36,12 @@ class QuizRepository:
         )
         return result.scalar_one()
 
+    async def count_all(self, owner_id: uuid.UUID) -> int:
+        result = await self.db.execute(
+            select(func.count()).select_from(Quiz).where(Quiz.owner_id == owner_id, Quiz.deleted_at.is_(None))
+        )
+        return result.scalar_one()
+
 
     async def create_quiz(self, **kwargs) -> Quiz:
         quiz = Quiz(**kwargs)
@@ -119,3 +125,8 @@ class QuizRepository:
         attempt.percentage = percentage
         attempt.completed_at = datetime.now(timezone.utc)
         await self.db.commit()
+
+    async def soft_delete(self, quiz: Quiz) -> None:
+        quiz.deleted_at = datetime.now(timezone.utc)
+        await self.db.commit()
+
