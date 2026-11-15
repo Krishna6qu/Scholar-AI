@@ -1032,7 +1032,13 @@ export default function MindMapViewPage() {
                 </p>
 
                 <button
-                  onClick={() => navigate("/chat", { state: { initialPrompt: `Explain the concept "${selectedNode.name}" in depth: ${selectedNode.description}` } })}
+                  onClick={() => {
+                    const nodeTopic = selectedNode?.name || map?.title || "";
+                    const prompt = `Explain the concept "${nodeTopic}" in depth: ${selectedNode?.description || ""}`;
+                    navigate(`/chat?topic=${encodeURIComponent(nodeTopic)}&prompt=${encodeURIComponent(prompt)}`, {
+                      state: { initialPrompt: prompt, topic: nodeTopic },
+                    });
+                  }}
                   className="w-full flex items-center justify-between text-xs px-3.5 py-2.5 rounded-xl bg-void-900/90 border border-void-700 hover:border-neon-violet text-void-200 hover:text-white transition-all group"
                 >
                   <span className="flex items-center gap-2">
@@ -1138,7 +1144,13 @@ export default function MindMapViewPage() {
 
               <div className="grid grid-cols-3 gap-2 pt-2 border-t border-void-800">
                 <button
-                  onClick={() => navigate("/chat", { state: { initialPrompt: `Explain the concept "${selectedNode.name}" in depth: ${selectedNode.description}` } })}
+                  onClick={() => {
+                    const nodeTopic = selectedNode?.name || map?.title || "";
+                    const prompt = `Explain the concept "${nodeTopic}" in depth: ${selectedNode?.description || ""}`;
+                    navigate(`/chat?topic=${encodeURIComponent(nodeTopic)}&prompt=${encodeURIComponent(prompt)}`, {
+                      state: { initialPrompt: prompt, topic: nodeTopic },
+                    });
+                  }}
                   className="flex flex-col items-center justify-center p-2.5 rounded-xl bg-void-900 border border-void-700 text-void-200 text-center"
                 >
                   <MessageSquare className="w-4 h-4 text-neon-violet mb-1" />

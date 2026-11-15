@@ -127,7 +127,12 @@ export default function NoteViewPage() {
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <button
-                onClick={() => navigate("/chat", { state: { initialPrompt: `Based on these notes for "${note.title}", what are the 3 most likely exam questions?\n\n${note.content.slice(0, 800)}...` } })}
+                onClick={() => {
+                  const prompt = `Based on these notes for "${note.title}", what are the 3 most likely exam questions?\n\n${note.content.slice(0, 800)}...`;
+                  navigate(`/chat?topic=${encodeURIComponent(note.title)}&prompt=${encodeURIComponent(prompt)}`, {
+                    state: { initialPrompt: prompt, topic: note.title },
+                  });
+                }}
                 className="flex items-center justify-between p-3.5 rounded-2xl bg-void-800 border border-void-600 hover:border-neon-violet hover:bg-void-700 text-left transition-all group shadow-sm"
               >
                 <div className="flex items-center gap-2.5 min-w-0">

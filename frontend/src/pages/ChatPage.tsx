@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo } from "react";
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams, Link, useLocation, useSearchParams } from "react-router-dom";
 import {
   Send,
   Plus,
@@ -228,12 +228,15 @@ function deriveTopicForMessage(
 
 export default function ChatPage() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { chatId } = useParams<{ chatId?: string }>();
   const logout = useAuthStore((s) => s.logout);
 
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
+  const [sourceTopic, setSourceTopic] = useState<string | null>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [sending, setSending] = useState(false);
   const [loadingChat, setLoadingChat] = useState(false);
@@ -273,6 +276,35 @@ export default function ChatPage() {
     textareaRef.current.style.height = "auto";
     textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`;
   }, [draft]);
+
+  // Handle pre-filled prompt or topic from study bridges (Mind Map, Notes, Flashcards, Quiz)
+  useEffect(() => {
+    const locState = location.state as { initialPrompt?: string; topic?: string } | null;
+    const initialPrompt = locState?.initialPrompt || searchParams.get("prompt");
+    const topic = locState?.topic || searchParams.get("topic");
+
+    if (topic && topic.trim()) {
+      setSourceTopic(topic.trim());
+    }
+
+    if (initialPrompt && initialPrompt.trim()) {
+      setDraft(initialPrompt.trim());
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = textareaRef.current.value.length;
+        }
+      }, 100);
+    } else if (topic && topic.trim()) {
+      setDraft(`Can you explain the key concepts of "${topic.trim()}" in depth and test my understanding?`);
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.focus();
+          textareaRef.current.selectionStart = textareaRef.current.selectionEnd = textareaRef.current.value.length;
+        }
+      }, 100);
+    }
+  }, [location.state, searchParams]);
 
   // Load chat list
   async function refreshChatList() {
@@ -1138,6 +1170,25 @@ export default function ChatPage() {
                 >
                   <Radio className="w-3 h-3" />
                   <span>Summarize &amp; Audio</span>
+                </button>
+              </div>
+            )}
+
+            {sourceTopic && (
+              <div className="flex items-center justify-between mb-2 px-3 py-1.5 rounded-xl bg-neon-cyan/15 border border-neon-cyan/40 text-xs text-neon-cyan animate-in fade-in">
+                <span className="flex items-center gap-1.5 truncate">
+                  <Sparkles className="w-3.5 h-3.5 shrink-0" />
+                  <span>Topic pre-filled from study: <strong className="text-white">{sourceTopic}</strong></span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSourceTopic(null);
+                    setDraft("");
+                  }}
+                  className="text-slate-300 hover:text-white text-[10px] ml-2 font-mono underline"
+                >
+                  Clear
                 </button>
               </div>
             )}

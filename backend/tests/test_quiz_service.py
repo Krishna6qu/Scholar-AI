@@ -47,3 +47,34 @@ Hope this is helpful!"""
     assert parsed["questions"][0]["question_text"] == "What is overfitting?"
     assert len(parsed["questions"][0]["options"]) == 2
     assert parsed["questions"][0]["options"][0]["is_correct"] is True
+
+
+def test_quiz_extract_from_raw_text():
+    from app.services.quiz_service import _extract_questions_from_raw_text
+
+    raw_text = """
+1. What does CPU stand for?
+A) Central Processing Unit
+B) Computer Personal Unit
+C) Central Performance Utility
+D) Core Processing Unit
+Answer: A
+Explanation: CPU stands for Central Processing Unit.
+
+2. Which memory is volatile?
+A) ROM
+B) RAM
+C) Hard Drive
+D) Flash Drive
+Answer: B
+Explanation: RAM loses its state when power is lost.
+"""
+    extracted = _extract_questions_from_raw_text(raw_text)
+    assert len(extracted) == 2
+    assert "CPU" in extracted[0]["question_text"]
+    assert len(extracted[0]["options"]) == 4
+    assert extracted[0]["options"][0]["is_correct"] is True
+    assert extracted[0]["options"][1]["is_correct"] is False
+    assert "volatile" in extracted[1]["question_text"]
+    assert extracted[1]["options"][1]["text"] == "RAM"
+    assert extracted[1]["options"][1]["is_correct"] is True

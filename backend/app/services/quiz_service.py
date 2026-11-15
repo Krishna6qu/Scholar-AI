@@ -1,7 +1,9 @@
+import re
 import uuid
 from typing import Any
 
 from fastapi import HTTPException, status
+from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.ai_utils import acompletion_with_retry, ai_error_response, extract_json, resolve_api_key
@@ -19,6 +21,64 @@ DIFFICULTY_GUIDANCE = {
         "would ask to test true mastery, including edge cases and 'why' questions, not just 'what'."
     ),
 }
+
+
+def _extract_questions_from_raw_text(text: str) -> list[dict]:
+    """Fallback extractor if the AI returned questions in raw text or markdown format."""
+    questions: list[dict] = []
+    # Split by common question headings: "1.", "Question 1:", "## 1", etc.
+    raw_blocks = re.split(r"(?:\n\s*(?:(?:Question|Q)\s*\d+[:.]|\d+[\.)])\s+)", "\n" + text)
+    for block in raw_blocks:
+        block = block.strip()
+        if not block or len(block) < 15:
+            continue
+        lines = [line.strip() for line in block.split("\n") if line.strip()]
+        if not lines:
+            continue
+        q_text = lines[0]
+        options: list[dict] = []
+        explanation = ""
+        hint = None
+        answer_text = ""
+
+        for line in lines[1:]:
+            opt_match = re.match(r"^([A-Da-d])[\)\.]\s*(.+)$", line)
+            if opt_match:
+                options.append({
+                    "text": opt_match.group(2).strip(),
+                    "is_correct": False,
+                    "letter": opt_match.group(1).upper(),
+                })
+                continue
+            ans_match = re.match(r"^(?:Correct\s+)?Answer\s*[:\-]\s*(.+)$", line, re.I)
+            if ans_match:
+                answer_text = ans_match.group(1).strip()
+                continue
+            exp_match = re.match(r"^Explanation\s*[:\-]\s*(.+)$", line, re.I)
+            if exp_match:
+                explanation = exp_match.group(1).strip()
+                continue
+            hint_match = re.match(r"^Hint\s*[:\-]\s*(.+)$", line, re.I)
+            if hint_match:
+                hint = hint_match.group(1).strip()
+
+        if options:
+            matched = False
+            for opt in options:
+                if answer_text and (opt["letter"] == answer_text.upper() or opt["text"].lower() == answer_text.lower()):
+                    opt["is_correct"] = True
+                    matched = True
+                    break
+            if not matched and options:
+                options[0]["is_correct"] = True
+            questions.append({
+                "type": "mcq",
+                "question_text": q_text,
+                "hint": hint,
+                "explanation": explanation or None,
+                "options": [{"text": o["text"], "is_correct": o["is_correct"]} for o in options],
+            })
+    return questions
 
 
 def _extract_question_list(parsed: Any) -> list[dict]:
@@ -66,76 +126,51 @@ def _build_prompt(data: QuizGenerateRequest, breakdown: dict) -> str:
     total_q = data.total_questions
     type_lines = []
     for qtype, count in breakdown.items():
-        label = {"mcq": "multiple-choice", "true_false": "true/false", "short_answer": "short-answer"}[qtype]
+        label = {"mcq": "multiple-choice", "true_false": "true/false", "short_answer": "short-answer"}.get(qtype, qtype)
         type_lines.append(f"- {count} {label} question(s)")
 
     hint_instruction = (
-        'For each question, provide a short, non-giveaway "hint" string that nudges the student without revealing the answer.'
+        'For each question, provide a short, non-giveaway "hint" string (under 15 words) that nudges the student.'
         if data.hints_enabled
         else 'Set "hint" to null for all questions.'
     )
 
-    sample_items = []
-    if "mcq" in breakdown or data.question_type == "mcq":
-        sample_items.append("""    {
-      "type": "mcq",
-      "question_text": "Clear question prompt?",
-      "hint": "Brief hint or null",
-      "explanation": "Concise 1-2 sentence explanation of the correct answer.",
-      "options": [
-        {"text": "Correct choice", "is_correct": true},
-        {"text": "Plausible distractor 1", "is_correct": false},
-        {"text": "Plausible distractor 2", "is_correct": false},
-        {"text": "Plausible distractor 3", "is_correct": false}
-      ]
-    }""")
-    if "true_false" in breakdown or data.question_type == "true_false":
-        sample_items.append("""    {
-      "type": "true_false",
-      "question_text": "Clear statement to evaluate as true or false?",
-      "hint": "Brief hint or null",
-      "explanation": "Concise explanation of true or false.",
-      "options": [
-        {"text": "True", "is_correct": true},
-        {"text": "False", "is_correct": false}
-      ]
-    }""")
-    if "short_answer" in breakdown or data.question_type == "short_answer":
-        sample_items.append("""    {
-      "type": "short_answer",
-      "question_text": "Clear short-answer question prompt?",
-      "hint": "Brief hint or null",
-      "explanation": "Concise explanation of concept.",
-      "expected_answer": "Concise Answer Phrase"
-    }""")
-
-    sample_block = ",\n".join(sample_items)
-
     return f"""You are a master academic assessment engine for ScholarAI.
-Generate a comprehensive, rigorous quiz on the topic: "{data.topic}".
+Generate a comprehensive, high-quality quiz on the topic: "{data.topic}".
 
 DIFFICULTY LEVEL: {data.difficulty} — {DIFFICULTY_GUIDANCE.get(data.difficulty, "Standard difficulty")}
 
-MANDATORY QUESTION COUNT:
-You MUST generate EXACTLY {total_q} questions.
-The "questions" JSON array MUST contain EXACTLY {total_q} complete question objects.
-Do NOT stop early. Do NOT generate only 1, 2, or 3 questions. Generate all {total_q} questions.
+STRICT REQUIREMENT - GENERATE EXACTLY {total_q} QUESTIONS:
+The "questions" JSON array MUST contain EXACTLY {total_q} questions.
+Do NOT stop early. Do NOT output only 1, 2, or 3 questions. Generate all {total_q} questions.
 
 QUESTION TYPE BREAKDOWN:
 {chr(10).join(type_lines)}
 
-RULES:
-1. "mcq": Exactly 4 options in "options". Exactly one option with "is_correct": true, and three with "is_correct": false.
-2. "true_false": Exactly 2 options ("True" and "False") in "options". Exactly one option with "is_correct": true, and one with "is_correct": false.
-3. "short_answer": No "options" array. Instead include a concise "expected_answer" string.
-4. {hint_instruction}
-5. Every question MUST include a concise 1-2 sentence "explanation" detailing why the correct answer is right.
+FIELD SPECIFICATIONS:
+- "type": "mcq" | "true_false" | "short_answer"
+- "question_text": Clear, rigorous question prompt
+- {hint_instruction}
+- "explanation": Exactly 1 concise sentence explaining why the answer is correct
+- For "mcq": "options" array with exactly 4 choices: [{{"text": "...", "is_correct": true}}, {{"text": "...", "is_correct": false}}, {{"text": "...", "is_correct": false}}, {{"text": "...", "is_correct": false}}]
+- For "true_false": "options" array with exactly 2 choices: [{{"text": "True", "is_correct": true/false}}, {{"text": "False", "is_correct": false/true}}]
+- For "short_answer": "expected_answer" string (no options array)
 
-Respond ONLY with valid JSON (no markdown fences, no preamble, no commentary):
+Return ONLY a valid JSON object without markdown fences, commentary, or comments:
 {{
   "questions": [
-{sample_block}
-    // Continue generating until there are EXACTLY {total_q} complete question objects in this array.
+    {{
+      "type": "mcq",
+      "question_text": "First question prompt?",
+      "hint": "Brief hint or null",
+      "explanation": "Brief explanation.",
+      "options": [
+        {{"text": "Correct choice", "is_correct": true}},
+        {{"text": "Plausible distractor 1", "is_correct": false}},
+        {{"text": "Plausible distractor 2", "is_correct": false}},
+        {{"text": "Plausible distractor 3", "is_correct": false}}
+      ]
+    }}
   ]
 }}"""
 
@@ -158,34 +193,53 @@ class QuizService:
         model = settings.DEFAULT_AI_MODEL
         target_count = data.total_questions
 
+        # Allocate ample tokens so 10+ questions never truncate mid-JSON
+        max_tokens_budget = min(4096, max(2600, target_count * 280))
+
         questions: list[dict] = []
         try:
             response = await acompletion_with_retry(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],
                 api_key=resolve_api_key(model),
-                max_tokens=2200,
+                max_tokens=max_tokens_budget,
             )
-            parsed = extract_json(response.choices[0].message.content)
-            questions = _extract_question_list(parsed)
+            raw_content = response.choices[0].message.content or ""
+            try:
+                parsed = extract_json(raw_content)
+                questions = _extract_question_list(parsed)
+            except Exception:
+                questions = []
 
-            # If the model returned fewer questions than requested, request completion of the remainder
+            # If JSON extraction did not find questions, attempt raw text extraction
+            if not questions:
+                questions = _extract_questions_from_raw_text(raw_content)
+
+            # If the model returned fewer questions than requested, attempt one fast completion
             if len(questions) < target_count:
                 needed = target_count - len(questions)
                 followup_prompt = (
-                    f"{prompt}\n\nIMPORTANT: The previous output only contained {len(questions)} questions. "
-                    f"Please generate the remaining {needed} questions on '{data.topic}' so that the total is {target_count}. "
-                    f"Return ONLY the valid JSON with a 'questions' array containing {needed} new questions."
+                    f"Generate {needed} additional distinct {data.difficulty} {data.question_type} quiz questions on '{data.topic}'. "
+                    f"Do not repeat previous concepts. Return ONLY a valid JSON object: {{\"questions\": [...]}} containing {needed} complete question objects."
                 )
-                followup_resp = await acompletion_with_retry(
-                    model=model,
-                    messages=[{"role": "user", "content": followup_prompt}],
-                    api_key=resolve_api_key(model),
-                    max_tokens=1500,
-                )
-                followup_parsed = extract_json(followup_resp.choices[0].message.content)
-                more_questions = _extract_question_list(followup_parsed)
-                questions.extend(more_questions)
+                try:
+                    followup_resp = await acompletion_with_retry(
+                        model=model,
+                        messages=[{"role": "user", "content": followup_prompt}],
+                        api_key=resolve_api_key(model),
+                        max_tokens=min(2500, max(1000, needed * 250)),
+                    )
+                    followup_raw = followup_resp.choices[0].message.content or ""
+                    try:
+                        followup_parsed = extract_json(followup_raw)
+                        more_questions = _extract_question_list(followup_parsed)
+                    except Exception:
+                        more_questions = _extract_questions_from_raw_text(followup_raw)
+                    questions.extend(more_questions)
+                except Exception as followup_err:
+                    logger.warning(
+                        f"Quiz followup generation had non-fatal error (continuing with {len(questions)} questions): {followup_err}"
+                    )
 
         except Exception as e:
             status_code, message = ai_error_response(e, "generate the quiz")

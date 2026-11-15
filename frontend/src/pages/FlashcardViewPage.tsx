@@ -416,7 +416,12 @@ export default function FlashcardViewPage() {
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <button
-              onClick={() => navigate("/chat", { state: { initialPrompt: `Based on my flashcards on "${set.title}", test my understanding and explain any tricky concepts in depth.` } })}
+              onClick={() => {
+                const prompt = `Based on my flashcards on "${set.title}", test my understanding and explain any tricky concepts in depth.`;
+                navigate(`/chat?topic=${encodeURIComponent(set.title)}&prompt=${encodeURIComponent(prompt)}`, {
+                  state: { initialPrompt: prompt, topic: set.title },
+                });
+              }}
               className="flex items-center justify-between p-3.5 rounded-2xl bg-void-800 border border-void-600 hover:border-neon-violet hover:bg-void-700 text-left transition-all group shadow-sm"
             >
               <div className="flex items-center gap-2.5 min-w-0">

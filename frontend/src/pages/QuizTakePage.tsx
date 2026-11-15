@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import {
   Clock,
   Lightbulb,
@@ -11,6 +11,9 @@ import {
   Sparkles,
   ChevronRight,
   Award,
+  MessageSquare,
+  Layers,
+  FileText,
 } from "lucide-react";
 import { api } from "@/lib/api";
 
@@ -56,6 +59,7 @@ interface AttemptResult {
 }
 
 export default function QuizTakePage() {
+  const navigate = useNavigate();
   const { quizId } = useParams<{ quizId: string }>();
 
   const [quiz, setQuiz] = useState<Quiz | null>(null);
@@ -271,6 +275,81 @@ export default function QuizTakePage() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Cross-Study Bridges */}
+          <div className="pt-2 border-t border-void-700/80">
+            <p className="text-[11px] font-mono uppercase tracking-wider text-slate-300 font-semibold mb-3 text-center sm:text-left">
+              Continue studying "{quiz?.title?.replace(/\s+Quiz$/i, "") || "this topic"}"
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+              <button
+                type="button"
+                onClick={() => {
+                  const topic = quiz?.title?.replace(/\s+Quiz$/i, "") || "this topic";
+                  const missed = result.results.filter((r) => !r.is_correct);
+                  const prompt = missed.length > 0
+                    ? `I just completed a quiz on "${topic}" and missed ${missed.length} question(s). Can you explain why the correct answers are right and test me on them?\n\nMissed Questions:\n` +
+                      missed.slice(0, 3).map((m, idx) => `${idx + 1}. ${m.question_text}\nCorrect Answer: ${m.correct_answer || ""}`).join("\n\n")
+                    : `I just scored ${Math.round(result.percentage)}% on my quiz about "${topic}". Can you challenge me with advanced questions to test my deeper understanding?`;
+                  navigate(`/chat?topic=${encodeURIComponent(topic)}&prompt=${encodeURIComponent(prompt)}`, {
+                    state: { initialPrompt: prompt, topic },
+                  });
+                }}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-void-800 border border-void-600 hover:border-neon-violet hover:bg-void-700 text-left transition-all group shadow-sm"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-neon-violet/15 border border-neon-violet/40 flex items-center justify-center text-neon-violet shrink-0">
+                    <MessageSquare className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white truncate">Ask AI in Chat</p>
+                    <p className="text-[10px] text-slate-300 font-medium truncate">Review questions</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const topic = quiz?.title?.replace(/\s+Quiz$/i, "") || "this topic";
+                  navigate(`/study/flashcards/new?topic=${encodeURIComponent(topic)}`, { state: { topic } });
+                }}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-void-800 border border-void-600 hover:border-neon-pink hover:bg-void-700 text-left transition-all group shadow-sm"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-neon-pink/15 border border-neon-pink/40 flex items-center justify-center text-neon-pink shrink-0">
+                    <Layers className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white truncate">Make Flashcards</p>
+                    <p className="text-[10px] text-slate-300 font-medium truncate">Memorize terms</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  const topic = quiz?.title?.replace(/\s+Quiz$/i, "") || "this topic";
+                  navigate(`/study/notes/new?topic=${encodeURIComponent(topic)}`, { state: { topic } });
+                }}
+                className="flex items-center justify-between p-3.5 rounded-2xl bg-void-800 border border-void-600 hover:border-neon-cyan hover:bg-void-700 text-left transition-all group shadow-sm"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-xl bg-neon-cyan/15 border border-neon-cyan/40 flex items-center justify-center text-neon-cyan shrink-0">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-white truncate">Generate Notes</p>
+                    <p className="text-[10px] text-slate-300 font-medium truncate">Study guide</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
+              </button>
+            </div>
           </div>
 
           {/* Action Navigation */}

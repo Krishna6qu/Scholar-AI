@@ -18,9 +18,11 @@ worker_class = "uvicorn.workers.UvicornWorker"
 # testing — AI-call-heavy endpoints are I/O-bound (waiting on the LLM
 # provider), so you can typically run more workers than CPU-bound workloads
 # would suggest.
-workers = int(os.getenv("WEB_CONCURRENCY", multiprocessing.cpu_count() * 2 + 1))
+# Default to 2 workers to fit comfortably within Render's free/starter 512MB RAM tier
+# while allowing concurrent request processing. Can be overridden via WEB_CONCURRENCY.
+workers = int(os.getenv("WEB_CONCURRENCY", "2"))
 
-timeout = 60  # AI generation calls can legitimately take 10-30s
+timeout = 120  # AI generation calls (quizzes, notes, roadmaps) can take 15-45s under load
 graceful_timeout = 30
 keepalive = 5
 
