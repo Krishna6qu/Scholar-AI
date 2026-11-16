@@ -22,9 +22,14 @@ worker_class = "uvicorn.workers.UvicornWorker"
 # while allowing concurrent request processing. Can be overridden via WEB_CONCURRENCY.
 workers = int(os.getenv("WEB_CONCURRENCY", "2"))
 
+# Worker recycling: restart workers after handling requests to prevent memory fragmentation
+# and leaks under prolonged high-concurrency traffic
+max_requests = 1000
+max_requests_jitter = 100
+
 timeout = 120  # AI generation calls (quizzes, notes, roadmaps) can take 15-45s under load
 graceful_timeout = 30
-keepalive = 5
+keepalive = 10  # Reuse TCP connections for high-throughput clients
 
 accesslog = "-"  # stdout
 errorlog = "-"

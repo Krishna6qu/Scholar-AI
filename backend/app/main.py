@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from loguru import logger
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -53,7 +54,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# GZip compression reduces large JSON payload transfers (quizzes, mindmaps, roadmaps)
+# by up to 80%, vastly increasing network throughput and lowering connection latency.
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+
+
+@app.get("/health")
+async def health_check() -> dict:
+    """Fast, lightweight health check endpoint for load balancers and orchestrators."""
+    return {"status": "ok", "app": settings.APP_NAME, "env": settings.ENVIRONMENT}
 
 
 @app.get("/")

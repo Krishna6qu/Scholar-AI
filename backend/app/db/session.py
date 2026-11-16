@@ -28,8 +28,10 @@ def _build_connect_args(database_url: str) -> dict:
 
     args: dict = {"ssl": "require"}
 
-    # PgBouncer transaction pooling (Supabase pooler on 6543) — not host-specific.
-    if port == 6543:
+    # PgBouncer transaction pooling (Neon pooler, Supabase on 6543, or generic poolers).
+    # Disabling prepared statement cache is critical under high concurrent traffic to prevent
+    # asyncpg DuplicatePreparedStatementError when connections are multiplexed.
+    if port == 6543 or "pooler" in host or "-pooler" in host:
         args["statement_cache_size"] = 0
         args["prepared_statement_cache_size"] = 0
 
@@ -42,8 +44,10 @@ engine = create_async_engine(
     settings.DATABASE_URL,
     echo=settings.DEBUG,
     pool_pre_ping=True,
-    pool_size=10,
-    max_overflow=20,
+    pool_size=20,
+    max_overflow=30,
+    pool_recycle=300,
+    pool_timeout=30,
     connect_args=_connect_args,
 )
 

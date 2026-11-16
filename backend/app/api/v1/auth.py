@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.deps import get_current_user
@@ -166,11 +166,26 @@ async def get_my_usage(
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
 
-    quiz_used = await QuizRepository(db).count_today(current_user.id)
-    flashcards_used = await FlashcardRepository(db).count_today(current_user.id)
-    mindmap_used = await MindMapRepository(db).count_today(current_user.id)
-    roadmap_used = await RoadmapRepository(db).count_today(current_user.id)
-    note_used = await NoteRepository(db).count_today(current_user.id)
+    now = datetime.now(timezone.utc)
+    today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # High-throughput: fetch all 5 feature usage counts in a single network round-trip
+    # utilizing PostgreSQL composite partial indexes (ix_*_owner_created_active)
+    count_stmt = text("""
+        SELECT
+            (SELECT count(*) FROM quizzes WHERE owner_id = :uid AND created_at >= :today AND deleted_at IS NULL) AS quiz_used,
+            (SELECT count(*) FROM flashcards WHERE owner_id = :uid AND created_at >= :today AND deleted_at IS NULL) AS flashcards_used,
+            (SELECT count(*) FROM mind_maps WHERE owner_id = :uid AND created_at >= :today AND deleted_at IS NULL) AS mindmap_used,
+            (SELECT count(*) FROM roadmaps WHERE owner_id = :uid AND created_at >= :today AND deleted_at IS NULL) AS roadmap_used,
+            (SELECT count(*) FROM short_notes WHERE owner_id = :uid AND created_at >= :today AND deleted_at IS NULL) AS note_used
+    """)
+    res = await db.execute(count_stmt, {"uid": current_user.id, "today": today_start})
+    row = res.one()
+    quiz_used = row[0]
+    flashcards_used = row[1]
+    mindmap_used = row[2]
+    roadmap_used = row[3]
+    note_used = row[4]
 
     reached: list[str] = []
     if quiz_used >= DAILY_LIMITS["quiz"]:
@@ -184,7 +199,6 @@ async def get_my_usage(
     if note_used >= DAILY_LIMITS["note"]:
         reached.append("note")
 
-    now = datetime.now(timezone.utc)
     tomorrow = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
     resets_in_hours = max(1, int(round((tomorrow - now).total_seconds() / 3600)))
 
