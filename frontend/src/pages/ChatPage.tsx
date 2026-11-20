@@ -792,9 +792,6 @@ export default function ChatPage() {
                   {activeChat?.title || "AI Study Partner"}
                 </h2>
               </div>
-              <p className="text-[11px] text-void-400 font-mono hidden sm:block">
-                Powered by Gemini 2.5 Flash
-              </p>
             </div>
           </div>
 
